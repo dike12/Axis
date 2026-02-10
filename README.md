@@ -6,10 +6,10 @@ Axis is a personal wealth manager built for the reality of money—not the way a
 
 Most budgeting apps are designed for people who already have a cushion. They shame you for buying coffee while ignoring the real question: *"If I lose my job tomorrow, how long can I survive?"*
 
-Axis is different. It is built for those growing from zero to financial independence. It combines **Survival Metrics**, **Real-World Cash Flow**, and **Python-Powered AI** to give you advice tailored to your unique situation.
+Axis is different. It is built for those growing from zero to financial independence. It combines **Survival Metrics**, **Real-World Cash Flow**, and a **Personal AI Strategist** to navigate your unique situation.
 
 ![Project Status](https://img.shields.io/badge/Status-MVP%20Development-emerald?style=flat-square)
-![Stack](https://img.shields.io/badge/Stack-Python%20(AI)%20%7C%20React%20%7C%20FastAPI-indigo?style=flat-square)
+![Stack](https://img.shields.io/badge/Stack-React%20%7C%20FastAPI%20%7C%20PostgreSQL-slate?style=flat-square)
 
 ---
 
@@ -18,8 +18,8 @@ Axis is different. It is built for those growing from zero to financial independ
 **1. Real Life is Messy**
 Getting paid on the 25th shouldn't break your monthly budget. Axis uses smart **"Income Shifting"** logic to move late paychecks to the month where you actually spend them. No more fake "rich" months followed by "poor" months.
 
-**2. Intelligence > Data**
-You don't need another graph showing you spent money. You need a strategy. Axis uses Python to analyze your spending patterns and offer **AI-driven advice** specific to *your* goals—whether that's paying off debt or building a 6-month runway.
+**2. Strategy > Data**
+You don't need another graph showing *where* you spent money. You need to know *what to do next*. Axis acts as a proactive strategist, analyzing your gaps and offering tailored advice—whether that's paying off debt or extending your runway.
 
 **3. Owned by You**
 Your financial data shouldn't be sold to credit card companies. Axis is self-hosted, local-first, and completely free. You own the code, you own the data.
@@ -29,10 +29,10 @@ Your financial data shouldn't be sold to credit card companies. Axis is self-hos
 ## 🚀 Key Features
 
 ### 🧠 The AI Financial Strategist
-*Powered by Python*
-- **Tailored Advice:** The system doesn't give generic tips. It looks at *your* specific income vs. spending gaps and suggests concrete actions.
-- **Trend Detection:** Alerts you if your "Lifestyle Inflation" is outpacing your income growth.
-- **Scenario Planning:** "What if I cut dining out by 20%?" The AI calculates how that impacts your Freedom Date.
+*Your proactively intelligent co-pilot.*
+- **Tailored Guidance:** The system understands your specific context (Student? Debt-heavy? Accumulating?) and adjusts its advice accordingly.
+- **Trend Detection:** Detects "Lifestyle Inflation" before it becomes a problem.
+- **Scenario Planning:** "What if I cut dining out by 20%?" Axis simulates the impact on your Freedom Date.
 
 ### 🛡️ The Survival Dashboard
 - **Runway Metric:** Instantly calculates how many months you can live without income.
@@ -53,9 +53,9 @@ Your financial data shouldn't be sold to credit card companies. Axis is self-hos
 - **Visualization:** Recharts
 
 **Backend (The Brain)**
-- **Language:** **Python 3.10+** (The core of the analysis)
-- **API:** FastAPI (High-performance Async I/O)
-- **AI/Logic:** Pandas & Scikit-learn (For data analysis and advice generation)
+- **Language:** Python 3.10+
+- **API:** FastAPI
+- **Intelligence:** Scikit-learn & Pandas (Predictive Modeling)
 - **Database:** PostgreSQL (via Docker)
 
 ---
@@ -64,5 +64,5 @@ Your financial data shouldn't be sold to credit card companies. Axis is self-hos
 
 ### 1. Clone the Repo
 ```bash
-git clone [https://github.com/yourusername/axis-finance.git](https://github.com/dike12/Axis.git)
+git clone [https://github.com/dike12/Axis.git](https://github.com/dike12/Axis.git)
 cd Axis
