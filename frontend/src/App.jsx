@@ -6,8 +6,12 @@ import Navbar from './components/Navbar';
 import Header from './components/Header';
 
 import Home from './pages/Home';
+import BudgetPlanner from './pages/Planner'
 import Transactions from './pages/Transactions';
-
+import Analysis from './pages/Analysis';
+import Investments from './pages/Investments';
+import Strategist from './pages/Strategist'
+import Settings from './pages/Settings'
 
 
 export default function App() {
@@ -33,10 +37,12 @@ export default function App() {
           {/* 5. Pass toggle function to Home (so it can give it to Header) */}
           <Route path="/" element={<Home toggleSidebar={toggleSidebar} />} />
           
-          <Route path="/budget" element={<h1 className="p-8">Budget Page Coming Soon</h1>} />
+          <Route path="/budget" element={<BudgetPlanner toggleSidebar={toggleSidebar} />} />
           <Route path="/transactions" element={<Transactions toggleSidebar={ toggleSidebar} />} />
-          <Route path="/investments" element={<h1 className="p-8">Investments Page Coming Soon</h1>} />
-          <Route path="/settings" element={<h1 className="p-8">Settings Page Coming Soon</h1>} />
+          <Route path="/investments" element={<Investments toggleSidebar={ toggleSidebar} />} />
+          <Route path="/settings" element={<Settings toggleSidebar={ toggleSidebar} />} />
+          <Route path="/analysis" element={<Analysis toggleSidebar={toggleSidebar}/>} />
+          <Route path="/strategist" element={<Strategist toggleSidebar={toggleSidebar}/>} /> 
         </Routes>
       </main>
     </div>

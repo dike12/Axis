@@ -1,0 +1,13 @@
+name: Axis
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    ports:
+      - 5173:5173
+    container_name: frontend
+    volumes:
+      - ./frontend:/opt/app
+      - /opt/app/node_modules        

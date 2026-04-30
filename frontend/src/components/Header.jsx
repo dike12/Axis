@@ -1,34 +1,30 @@
-import { PanelLeft, Plus, ChevronRight } from 'lucide-react';
-import { Button } from "@/components/ui/button"; 
+import React from 'react';
+import { PanelLeft } from 'lucide-react';
 
 export default function Header({ title, children, toggleSidebar }) {
   return (
-    // GLASS EFFECT HEADER - No padding, border extends edge to edge
-    <header className="h-16 border-b border-white/10 bg-black/20 backdrop-blur-xl flex items-center justify-between px-8 transition-all duration-300">
+    <header className="h-16 border-b border-gray-800 bg-[#0B0E14]/80 backdrop-blur-xl flex items-center justify-between px-6 transition-all duration-300">
       
+      {/* Left Side: Sidebar Toggle & Title */}
       <div className="flex items-center gap-4">
         <button 
           onClick={toggleSidebar} 
           className="text-gray-400 hover:text-white transition-colors"
         >
-          <PanelLeft size={18} />
+          <PanelLeft size={20} />
         </button>
 
-        {/* Name of page */}
         <div className="flex items-center gap-2 text-sm">
-          <span className="text-white font-medium">{title}</span>
+          <span className="text-white font-medium tracking-wide">{title}</span>
         </div>
       </div>
 
-      {/* The Lovable "Add Transaction" Button Style */}
-      {/* If specific children are passed (like on Home), render them, otherwise default to the Add button */}
-      {children ? children : (
-        <Button className="bg-emerald-500 hover:bg-emerald-600 text-white border-0 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Transaction
-        </Button>
-      )}
+      {/* Right Side: Dynamic Actions */}
+      <div className="flex items-center gap-3">
+        {/* Only render exactly what the specific page passes in */}
+        {children}
+      </div>
       
     </header>
-  )
+  );
 }
