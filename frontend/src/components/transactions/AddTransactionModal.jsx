@@ -23,9 +23,21 @@ const typeTextColors = {
 export default function AddTransactionModal({ trigger, onAdd }) {
   const { addTransaction } = useFinance(); // Global State
   const [open, setOpen] = useState(false);
+
+  // 1. Automatically grab today's date in YYYY-MM-DD format
+  const getLocalDateString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const today = getLocalDateString();
   
-  const [date, setDate] = useState(""); 
-  const [type, setType] = useState("");
+  // 2. Set smart defaults so the user doesn't hit validation errors!
+  const [date, setDate] = useState(today); 
+  const [type, setType] = useState("expense"); 
   const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");
   const [details, setDetails] = useState("");
@@ -65,7 +77,11 @@ export default function AddTransactionModal({ trigger, onAdd }) {
       if (onAdd) onAdd(newTxn);
       
       setOpen(false);
-      setDate(""); setType(""); setCategory(""); setAmount(""); setDetails("");
+      setDate(getLocalDateString());
+      setType("expense");
+      setCategory("");
+      setAmount("");
+      setDetails("");
     }
   };
 

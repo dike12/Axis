@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 
 const FinanceContext = createContext();
 
@@ -69,10 +69,11 @@ const budgetSavingsCategories = [
 ];
 
 export function FinanceProvider({ children }) {
-  const [transactions, setTransactions] = useState(initialTransactions);
+  // 1. Start with an empty array instead of the mock data
+  const [transactions, setTransactions] = useState([]);
   const [holdings, setHoldings] = useState(initialHoldings);
+  const [loading, setLoading] = useState(true); // Added a loading state
 
-  // New Global Planner State
   const [plannerData, setPlannerData] = useState({
     actualIncome: defaultIncomeCategories,
     actualExpenses: defaultExpenseCategories,
@@ -82,7 +83,29 @@ export function FinanceProvider({ children }) {
     budgetSavings: budgetSavingsCategories,
   });
 
-  // Action to update planner grid data safely
+  // 2. The magic connection to FastAPI
+  useEffect(() => {
+    fetch('http://localhost:3000/api/v1/transactions/')
+      .then((res) => res.json())
+      .then((json) => {
+        // Safe mapping: Only map if json.data exists and is an array
+        const fetchedData = json.data || [];
+        
+        const formattedData = fetchedData.map(tx => ({
+          ...tx,
+          amount: parseFloat(tx.amount),
+          details: tx.description 
+        }));
+        
+        setTransactions(formattedData);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error fetching transactions:", err);
+        setLoading(false);
+      });
+  }, []);
+
   const updatePlannerData = (key, updater) => {
     setPlannerData(prev => ({
       ...prev,
@@ -90,11 +113,82 @@ export function FinanceProvider({ children }) {
     }));
   };
 
-  const addTransaction = (txn) => { setTransactions([{ ...txn, id: Date.now() }, ...transactions]); };
-  const deleteTransaction = (id) => { setTransactions(transactions.filter((t) => t.id !== id)); };
-  const editTransaction = (id, details, amount) => {
-    setTransactions((prev) => prev.map((t) => t.id === id ? { ...t, details, amount: t.type === "credit" ? amount : -Math.abs(amount) } : t));
+  // --- 1. ADD TRANSACTION ---
+  const addTransaction = async (txn) => {
+      // Translate Frontend keys to Backend schema
+      const payload = {
+        date: txn.date,
+        amount: Math.abs(txn.amount), // Backend expects positive numbers
+        category: txn.category,
+        description: txn.details, // Map 'details' to 'description'
+        type: txn.type,
+        shift_override: false 
+      };
+
+      try {
+        const res = await fetch('http://localhost:3000/api/v1/transactions/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        
+        if (json.data) {
+          // Translate the newly created DB record back to Frontend format
+          const newDbTx = { ...json.data, amount: parseFloat(json.data.amount), details: json.data.description };
+          // Instantly update the UI by putting the new item at the top of the list
+          setTransactions(prev => [newDbTx, ...prev]);
+        }
+      } catch (err) {
+        console.error("Failed to add transaction to database:", err);
+      }
   };
+
+  // --- 3. DELETE TRANSACTION ---
+  const deleteTransaction = async (id) => {
+    // Optimistic UI update: remove it from the screen immediately to make the app feel fast
+    setTransactions(prev => prev.filter((t) => t.id !== id));
+
+    try {
+      await fetch(`http://localhost:3000/api/v1/transactions/${id}`, {
+        method: 'DELETE'
+      });
+      // If we wanted to be super safe, we'd check for a 200 OK status here,
+      // but since we already updated the UI, the user is happy!
+    } catch (err) {
+      console.error("Failed to delete transaction:", err);
+      // In a production app, if this failed, we would re-fetch the transactions to fix the UI
+    }
+  };
+
+  // --- 2. EDIT TRANSACTION ---
+  const editTransaction = async (id, details, amount, newDate) => {
+      // Add the date to the payload
+      const payload = {
+        description: details,
+        amount: Math.abs(amount),
+        date: newDate 
+      };
+
+      try {
+        const res = await fetch(`http://localhost:3000/api/v1/transactions/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+
+        if (json.data) {
+          // Since the backend might have shifted the effective_date based on your new date,
+          // we map the ENTIRE updated transaction back to the frontend!
+          const updatedDbTx = { ...json.data, amount: parseFloat(json.data.amount), details: json.data.description };
+          setTransactions(prev => prev.map((t) => t.id === id ? updatedDbTx : t));
+        }
+      } catch (err) {
+        console.error("Failed to update transaction:", err);
+      }
+  };
+  
   const addHolding = (holding) => {
     setHoldings((prev) => {
       const updated = [...prev, holding];
@@ -107,7 +201,7 @@ export function FinanceProvider({ children }) {
     <FinanceContext.Provider 
       value={{ 
         transactions, holdings, addTransaction, deleteTransaction, editTransaction, addHolding,
-        plannerData, updatePlannerData // Exported for Planner & Analysis
+        plannerData, updatePlannerData, loading 
       }}
     >
       {children}

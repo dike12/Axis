@@ -6,8 +6,43 @@ services:
       context: ./frontend
       target: dev
     ports:
-      - 5173:5173
+      - "${FRONTEND_PORT}:${FRONTEND_PORT}"
     container_name: frontend
     volumes:
       - ./frontend:/opt/app
       - /opt/app/node_modules        
+
+  backend:
+    build: ./backend
+    ports:
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
+    container_name: backend
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/opt/app
+    depends_on:
+       database:
+          condition: service_healthy
+    
+
+  database:
+    image: 'postgres:latest'
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:
+
+

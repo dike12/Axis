@@ -58,12 +58,13 @@ function Modal({ onClose, children }) {
 /** Edit Transaction Modal */
 function EditModal({ transaction, onSave, onClose }) {
   const [details, setDetails] = useState(transaction.details);
-  const [amount,  setAmount]  = useState(String(Math.abs(transaction.amount)));
+  const [amount, setAmount] = useState(String(Math.abs(transaction.amount)));
+  const [date, setDate] = useState(transaction.date);
 
   const handleSave = () => {
     const amt = parseFloat(amount);
     if (isNaN(amt) || amt <= 0) return;
-    onSave(transaction.id, details, amt);
+    onSave(transaction.id, details, amt, date);
   };
 
   return (
@@ -79,6 +80,16 @@ function EditModal({ transaction, onSave, onClose }) {
       </div>
 
       <div className="p-6 space-y-4">
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full h-10 px-3 rounded-md border border-gray-700 bg-[#0B0E14] text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors [color-scheme:dark]"
+          />
+        </div>
+
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-gray-400 uppercase tracking-wide">Details</label>
           <input
@@ -101,18 +112,8 @@ function EditModal({ transaction, onSave, onClose }) {
       </div>
 
       <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-800 bg-[#0B0E14]/40 rounded-b-xl">
-        <button
-          onClick={onClose}
-          className="px-4 py-2 rounded-md text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSave}
-          className="px-4 py-2 rounded-md text-sm font-medium bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
-        >
-          Save Changes
-        </button>
+        <button onClick={onClose} className="px-4 py-2 rounded-md text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">Cancel</button>
+        <button onClick={handleSave} className="px-4 py-2 rounded-md text-sm font-medium bg-emerald-500 hover:bg-emerald-600 text-white transition-colors">Save Changes</button>
       </div>
     </Modal>
   );
@@ -154,7 +155,7 @@ function DeleteModal({ onConfirm, onClose }) {
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 export default function Transactions({ toggleSidebar }) {
   // Pull transactions and mutators from global context
-  const { transactions, editTransaction, deleteTransaction } = useFinance();
+  const { transactions, addTransaction, editTransaction, deleteTransaction, loading } = useFinance();  
   
   const [page,         setPage]         = useState(0);
   const [search,       setSearch]       = useState("");
@@ -184,11 +185,11 @@ export default function Transactions({ toggleSidebar }) {
   const netFlow       = totalIncome - totalExpenses;
 
   // ── Handlers ──
-  const handleEditSave = (id, details, amt) => {
-    editTransaction(id, details, amt); // Using global function
-    setEditingTxn(null);
+  const handleEditSave = (id, details, amt, newDate) => { // Added newDate
+      editTransaction(id, details, amt, newDate); // Pass it to Context
+      setEditingTxn(null);
   };
-
+  
   const handleDelete = (id) => {
     deleteTransaction(id); // Using global function
     setDeletingId(null);
@@ -293,10 +294,10 @@ export default function Transactions({ toggleSidebar }) {
             </button>
 
             {/* Import */}
-            <button className="flex items-center gap-2 h-10 px-4 rounded-md border border-gray-700 bg-[#11141B] text-sm text-gray-300 hover:text-white hover:border-gray-600 transition-colors">
-              <Upload className="h-4 w-4" />
-              Import
-            </button>
+            <CSVImportModal
+              existingTransactions={transactions}
+              onImport={(txns) => txns.forEach(t => addTransaction(t))}
+            />
 
             {/* Export */}
             <button className="flex items-center gap-2 h-10 px-4 rounded-md border border-gray-700 bg-[#11141B] text-sm text-gray-300 hover:text-white hover:border-gray-600 transition-colors">
@@ -315,12 +316,14 @@ export default function Transactions({ toggleSidebar }) {
             <h2 className="text-base font-semibold text-white">All Transactions</h2>
           </div>
 
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+          {loading ? (
+            <div className="flex justify-center items-center py-16 text-gray-400 text-sm">
+              Loading transactions...
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
               <p className="text-gray-400 text-sm">No transactions found.</p>
-              <button className="px-4 py-2 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium transition-colors">
-                + Add Transaction
-              </button>
+              <AddTransactionModal /> 
             </div>
           ) : (
             <>

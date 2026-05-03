@@ -1,0 +1,6 @@
+fastapi[standard]
+psycopg[binary]
+sqlalchemy
+pydantic-settings
+uvicorn[standard]
+alembic

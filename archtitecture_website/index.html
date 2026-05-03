@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Axis Finance — Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ─── HEADER ─────────────────────────────────────────────────────────── -->
+<header>
+  <div class="header-left">
+    <div class="logo-row">
+      <div class="logo-mark">A</div>
+      <h1>Axis <span>Finance</span></h1>
+    </div>
+    <div class="header-sub">Backend Architecture · v1.0 · Monolith designed to split</div>
+  </div>
+  <div class="header-meta">
+    <div><strong>Framework</strong> FastAPI (Python 3.10+)</div>
+    <div><strong>Database</strong> PostgreSQL 15 via Docker</div>
+    <div><strong>Auth</strong> Google OAuth 2.0</div>
+    <div><strong>Pattern</strong> Modular Monolith</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ─── SECTION 1: TECH STACK ───────────────────────────────────────── -->
+  <section>
+    <div class="section-label">Technology Stack</div>
+    <div class="stack-row">
+      <div class="stack-card" style="--accent:var(--emerald)">
+        <span class="stack-icon">⚡</span>
+        <div class="stack-name">FastAPI</div>
+        <div class="stack-tech">Python 3.10+</div>
+        <div class="stack-note">Async API framework. One router per module.</div>
+      </div>
+      <div class="stack-card" style="--accent:var(--cyan)">
+        <span class="stack-icon">🐘</span>
+        <div class="stack-name">PostgreSQL</div>
+        <div class="stack-tech">v15 · Docker</div>
+        <div class="stack-note">Primary data store. Named volume for persistence.</div>
+      </div>
+      <div class="stack-card" style="--accent:var(--indigo)">
+        <span class="stack-icon">🔗</span>
+        <div class="stack-name">SQLAlchemy</div>
+        <div class="stack-tech">v2.0 Async ORM</div>
+        <div class="stack-note">Async sessions. Alembic for migrations.</div>
+      </div>
+      <div class="stack-card" style="--accent:var(--rose)">
+        <span class="stack-icon">🔐</span>
+        <div class="stack-name">Google OAuth</div>
+        <div class="stack-tech">OAuth 2.0</div>
+        <div class="stack-note">Single user now. Multi-user ready by design.</div>
+      </div>
+      <div class="stack-card" style="--accent:var(--amber)">
+        <span class="stack-icon">📈</span>
+        <div class="stack-name">Alpha Vantage</div>
+        <div class="stack-tech">Free Tier API</div>
+        <div class="stack-note">Live stock & crypto prices. 25 calls/day.</div>
+      </div>
+      <div class="stack-card" style="--accent:var(--purple)">
+        <span class="stack-icon">🐳</span>
+        <div class="stack-name">Docker Compose</div>
+        <div class="stack-tech">Two services</div>
+        <div class="stack-note">API + PostgreSQL. Hot reload in dev mode.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── SECTION 2: ARCHITECTURE ─────────────────────────────────────── -->
+  <section>
+    <div class="section-label">Application Architecture</div>
+    <div class="arch-grid">
+
+      <!-- LEFT: External services -->
+      <div class="side-panel">
+        <div class="side-card" style="--side-color:var(--cyan)">
+          <div class="side-card-header">
+            <span class="side-icon">🌐</span>
+            <span class="side-title">Frontend (Vite)</span>
+          </div>
+          <div class="side-body">
+            <div class="side-item">React + Tailwind CSS</div>
+            <div class="side-item">localhost:5173</div>
+            <div class="side-item">CORS → API :8000</div>
+            <div class="side-item">6 pages, no Radix UI</div>
+          </div>
+        </div>
+
+        <div class="side-card" style="--side-color:var(--rose)">
+          <div class="side-card-header">
+            <span class="side-icon">🔐</span>
+            <span class="side-title">Google OAuth</span>
+          </div>
+          <div class="side-body">
+            <div class="side-item">Consent screen redirect</div>
+            <div class="side-item">Code → token exchange</div>
+            <div class="side-item">User profile fetch</div>
+            <div class="side-item">HTTP-only session cookie</div>
+          </div>
+        </div>
+
+        <div class="side-card" style="--side-color:var(--amber)">
+          <div class="side-card-header">
+            <span class="side-icon">📊</span>
+            <span class="side-title">Alpha Vantage</span>
+          </div>
+          <div class="side-body">
+            <div class="side-item">GLOBAL_QUOTE (stocks)</div>
+            <div class="side-item">CURRENCY_EXCHANGE (crypto)</div>
+            <div class="side-item">Rate limited: 5/min</div>
+            <div class="side-item">Background task only</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CENTER: App layers -->
+      <div class="center-col">
+
+        <!-- main.py -->
+        <div class="layer-row" style="--row-color:var(--emerald)">
+          <div class="layer-row-header">
+            <span class="row-badge" style="background:rgba(16,185,129,0.1);color:var(--emerald);border:1px solid rgba(16,185,129,0.2)">ENTRY</span>
+            <span class="row-title">main.py</span>
+            <span class="row-path">backend/main.py</span>
+          </div>
+          <div class="layer-row-body">
+            <div class="module-chip" style="--chip-color:var(--emerald)" data-tip="FastAPI app factory">
+              <span class="chip-icon">🏭</span>
+              <span class="chip-name">App Factory</span>
+              <div class="chip-files">
+                <div class="chip-file"><div class="chip-file-dot"></div>CORS middleware</div>
+                <div class="chip-file"><div class="chip-file-dot"></div>Router registration</div>
+                <div class="chip-file"><div class="chip-file-dot"></div>Startup events</div>
+              </div>
+            </div>
+            <div class="module-chip" style="--chip-color:var(--emerald)" data-tip="All module routers mounted here">
+              <span class="chip-icon">🔀</span>
+              <span class="chip-name">Router Mount</span>
+              <div class="chip-files">
+                <div class="chip-file"><div class="chip-file-dot"></div>/api/v1/auth</div>
+                <div class="chip-file"><div class="chip-file-dot"></div>/api/v1/transactions</div>
+                <div class="chip-file"><div class="chip-file-dot"></div>/api/v1/budget + more</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- core/ -->
+        <div class="layer-row" style="--row-color:var(--indigo)">
+          <div class="layer-row-header">
+            <span class="row-badge" style="background:rgba(99,102,241,0.1);color:var(--indigo);border:1px solid rgba(99,102,241,0.2)">CORE</span>
+            <span class="row-title">Shared Infrastructure</span>
+            <span class="row-path">backend/core/</span>
+          </div>
+          <div class="core-files">
+            <div class="core-file">
+              <div class="core-file-name">config.py</div>
+              <div class="core-file-desc">Env vars, settings. DATABASE_URL, API keys, OAuth secrets, CORS origins.</div>
+            </div>
+            <div class="core-file">
+              <div class="core-file-name">database.py</div>
+              <div class="core-file-desc">Async SQLAlchemy engine + session factory. Base model class.</div>
+            </div>
+            <div class="core-file">
+              <div class="core-file-name">auth.py</div>
+              <div class="core-file-desc">Session validation middleware. get_current_user() dependency injection.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- modules/ -->
+        <div class="layer-row" style="--row-color:var(--cyan)">
+          <div class="layer-row-header">
+            <span class="row-badge" style="background:rgba(34,211,238,0.1);color:var(--cyan);border:1px solid rgba(34,211,238,0.2)">MODULES</span>
+            <span class="row-title">Feature Modules</span>
+            <span class="row-path">backend/modules/</span>
+          </div>
+          <div class="layer-row-body">
+            <div class="module-chip" style="--chip-color:var(--rose)" data-tip="Google OAuth flow">
+              <span class="chip-icon">🔐</span>
+              <span class="chip-name">auth/</span>
+              <div class="chip-files">
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--rose)"></div>router.py</div>
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--rose)"></div>models.py</div>
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--rose)"></div>service.py</div>
+              </div>
+            </div>
+            <div class="module-chip" style="--chip-color:var(--emerald)" data-tip="Income rollover, CSV import">
+              <span class="chip-icon">💳</span>
+              <span class="chip-name">transactions/</span>
+              <div class="chip-files">
+                <div class="chip-file"><div class="chip-file-dot"></div>router.py</div>
+                <div class="chip-file"><div class="chip-file-dot"></div>models.py</div>
+                <div class="chip-file"><div class="chip-file-dot"></div>service.py</div>
+                <div class="chip-file"><div class="chip-file-dot"></div>csv_parser.py</div>
+              </div>
+            </div>
+            <div class="module-chip" style="--chip-color:var(--indigo)" data-tip="Budget grid, planned vs actual">
+              <span class="chip-icon">📋</span>
+              <span class="chip-name">budget/</span>
+              <div class="chip-files">
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--indigo)"></div>router.py</div>
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--indigo)"></div>models.py</div>
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--indigo)"></div>service.py</div>
+              </div>
+            </div>
+            <div class="module-chip" style="--chip-color:var(--amber)" data-tip="Live prices, Alpha Vantage">
+              <span class="chip-icon">📈</span>
+              <span class="chip-name">investments/</span>
+              <div class="chip-files">
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--amber)"></div>router.py</div>
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--amber)"></div>models.py</div>
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--amber)"></div>service.py</div>
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--amber)"></div>price_fetcher.py</div>
+              </div>
+            </div>
+            <div class="module-chip" style="--chip-color:var(--purple)" data-tip="Trends, insights, breakdown">
+              <span class="chip-icon">🧠</span>
+              <span class="chip-name">analysis/</span>
+              <div class="chip-files">
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--purple)"></div>router.py</div>
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--purple)"></div>service.py</div>
+              </div>
+            </div>
+            <div class="module-chip" style="--chip-color:var(--cyan)" data-tip="User preferences, cutoff day">
+              <span class="chip-icon">⚙️</span>
+              <span class="chip-name">settings/</span>
+              <div class="chip-files">
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--cyan)"></div>router.py</div>
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--cyan)"></div>models.py</div>
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--cyan)"></div>service.py</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Database layer -->
+        <div class="layer-row" style="--row-color:var(--cyan)">
+          <div class="layer-row-header">
+            <span class="row-badge" style="background:rgba(34,211,238,0.1);color:var(--cyan);border:1px solid rgba(34,211,238,0.2)">DATA</span>
+            <span class="row-title">PostgreSQL 15</span>
+            <span class="row-path">Docker · port 5432</span>
+          </div>
+          <div class="layer-row-body">
+            <div class="module-chip" style="--chip-color:var(--cyan)">
+              <span class="chip-icon">👤</span>
+              <span class="chip-name">users</span>
+              <div class="chip-files">
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--cyan)"></div>google_id, email</div>
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--cyan)"></div>name, avatar_url</div>
+              </div>
+            </div>
+            <div class="module-chip" style="--chip-color:var(--emerald)">
+              <span class="chip-icon">💸</span>
+              <span class="chip-name">transactions</span>
+              <div class="chip-files">
+                <div class="chip-file"><div class="chip-file-dot"></div>date, effective_date</div>
+                <div class="chip-file"><div class="chip-file-dot"></div>is_shifted, override</div>
+              </div>
+            </div>
+            <div class="module-chip" style="--chip-color:var(--indigo)">
+              <span class="chip-icon">📊</span>
+              <span class="chip-name">budget_*</span>
+              <div class="chip-files">
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--indigo)"></div>budget_categories</div>
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--indigo)"></div>budget_values</div>
+              </div>
+            </div>
+            <div class="module-chip" style="--chip-color:var(--amber)">
+              <span class="chip-icon">📈</span>
+              <span class="chip-name">investments</span>
+              <div class="chip-files">
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--amber)"></div>symbol, shares</div>
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--amber)"></div>current_price</div>
+              </div>
+            </div>
+            <div class="module-chip" style="--chip-color:var(--cyan)">
+              <span class="chip-icon">⚙️</span>
+              <span class="chip-name">user_settings</span>
+              <div class="chip-files">
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--cyan)"></div>cutoff_day</div>
+                <div class="chip-file"><div class="chip-file-dot" style="background:var(--cyan)"></div>shift_late_income</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: Rules + env -->
+      <div class="side-panel">
+        <div class="side-card" style="--side-color:var(--indigo)">
+          <div class="side-card-header">
+            <span class="side-icon">📏</span>
+            <span class="side-title">Module Rules</span>
+          </div>
+          <div class="side-body">
+            <div class="side-item">Import only from core/ or own folder</div>
+            <div class="side-item">No business logic in routers</div>
+            <div class="side-item">No circular imports ever</div>
+            <div class="side-item">Each module independently testable</div>
+            <div class="side-item">user_id always from session</div>
+          </div>
+        </div>
+
+        <div class="side-card" style="--side-color:var(--purple)">
+          <div class="side-card-header">
+            <span class="side-icon">🌿</span>
+            <span class="side-title">Environment Variables</span>
+          </div>
+          <div class="side-body">
+            <div class="side-item">GOOGLE_CLIENT_ID</div>
+            <div class="side-item">GOOGLE_CLIENT_SECRET</div>
+            <div class="side-item">SESSION_SECRET_KEY</div>
+            <div class="side-item">DATABASE_URL</div>
+            <div class="side-item">ALPHA_VANTAGE_API_KEY</div>
+            <div class="side-item">CORS_ORIGINS</div>
+          </div>
+        </div>
+
+        <div class="side-card" style="--side-color:var(--emerald)">
+          <div class="side-card-header">
+            <span class="side-icon">🐳</span>
+            <span class="side-title">Docker Services</span>
+          </div>
+          <div class="side-body">
+            <div class="side-item">db · postgres:15-alpine · :5432</div>
+            <div class="side-item">api · custom dockerfile · :8000</div>
+            <div class="side-item">Named volume: pgdata</div>
+            <div class="side-item">Alembic runs on startup</div>
+            <div class="side-item">Hot reload via volume mount</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─── SECTION 3: ROLLOVER CALLOUT ──────────────────────────────────── -->
+  <section>
+    <div class="section-label">Key Business Logic — Income Rollover Rule</div>
+    <div class="callout">
+      <div class="callout-icon">⚡</div>
+      <div>
+        <div class="callout-title">The Rollover Rule — Most Critical Backend Logic</div>
+        <div class="callout-body">
+          When a transaction is type <code>credit</code> (income) AND its <code>date</code> is &gt;= <code>income_cutoff_day</code>
+          (default: 20th), the backend automatically sets <code>effective_date</code> = 1st of the following month
+          and marks <code>is_shifted = TRUE</code>. If <code>shift_override = TRUE</code>, this logic is skipped for that
+          transaction. All dashboard metrics, budget actuals, and analysis use <code>effective_date</code> — never
+          <code>date</code>. The frontend Ledger shows the real date with a "Shifted" badge when <code>is_shifted = TRUE</code>.
+          Changing <code>income_cutoff_day</code> in settings triggers recalculation of ALL historical transactions.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── SECTION 4: REQUEST FLOW ──────────────────────────────────────── -->
+  <section>
+    <div class="section-label">Request Flow</div>
+    <div class="flow-grid">
+      <div class="flow-node" style="--node-color:var(--cyan)">
+        <span class="flow-node-icon">🖥️</span>
+        <div class="flow-node-title">React Frontend</div>
+        <div class="flow-node-sub">Vite · localhost:5173<br/>fetch() with credentials</div>
+      </div>
+      <div class="flow-arrow">
+        <div class="flow-arrow-line"></div>
+        <div class="flow-arrow-label">HTTP + Cookie</div>
+      </div>
+      <div class="flow-node" style="--node-color:var(--indigo)">
+        <span class="flow-node-icon">🔒</span>
+        <div class="flow-node-title">Auth Middleware</div>
+        <div class="flow-node-sub">core/auth.py<br/>Validates session JWT<br/>Injects user_id</div>
+      </div>
+      <div class="flow-arrow">
+        <div class="flow-arrow-line"></div>
+        <div class="flow-arrow-label">user_id dep</div>
+      </div>
+      <div class="flow-node" style="--node-color:var(--emerald)">
+        <span class="flow-node-icon">🔀</span>
+        <div class="flow-node-title">Module Router</div>
+        <div class="flow-node-sub">Validates request<br/>via Pydantic schema<br/>Calls service layer</div>
+      </div>
+      <div class="flow-arrow">
+        <div class="flow-arrow-line"></div>
+        <div class="flow-arrow-label">service call</div>
+      </div>
+      <div class="flow-node" style="--node-color:var(--amber)">
+        <span class="flow-node-icon">⚙️</span>
+        <div class="flow-node-title">Service Layer</div>
+        <div class="flow-node-sub">Business logic<br/>Rollover calc<br/>DB queries</div>
+      </div>
+      <div class="flow-arrow">
+        <div class="flow-arrow-line"></div>
+        <div class="flow-arrow-label">async ORM</div>
+      </div>
+      <div class="flow-node" style="--node-color:var(--cyan)">
+        <span class="flow-node-icon">🐘</span>
+        <div class="flow-node-title">PostgreSQL</div>
+        <div class="flow-node-sub">Docker · :5432<br/>Async SQLAlchemy<br/>Filtered by user_id</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── SECTION 5: DATABASE ───────────────────────────────────────────── -->
+  <section>
+    <div class="section-label">Database Schema — Key Columns</div>
+    <div class="db-grid">
+
+      <div class="db-table">
+        <div class="db-table-header"><span>👤</span><div class="db-table-name">users</div></div>
+        <div class="db-table-body">
+          <div class="db-col"><span class="db-col-name">id</span><span class="db-col-type">UUID</span><span class="db-col-flag flag-pk">PK</span></div>
+          <div class="db-col"><span class="db-col-name">google_id</span><span class="db-col-type">VARCHAR</span><span class="db-col-flag flag-key">UNIQUE</span></div>
+          <div class="db-col"><span class="db-col-name">email</span><span class="db-col-type">VARCHAR</span><span class="db-col-flag flag-nn">NOT NULL</span></div>
+          <div class="db-col"><span class="db-col-name">name</span><span class="db-col-type">VARCHAR</span><span class="db-col-flag flag-nn">NOT NULL</span></div>
+          <div class="db-col"><span class="db-col-name">avatar_url</span><span class="db-col-type">TEXT</span><span class="db-col-flag">nullable</span></div>
+        </div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-table-header"><span>💸</span><div class="db-table-name">transactions</div></div>
+        <div class="db-table-body">
+          <div class="db-col"><span class="db-col-name">id</span><span class="db-col-type">UUID</span><span class="db-col-flag flag-pk">PK</span></div>
+          <div class="db-col"><span class="db-col-name">user_id</span><span class="db-col-type">UUID</span><span class="db-col-flag flag-fk">FK</span></div>
+          <div class="db-col"><span class="db-col-name">date</span><span class="db-col-type">DATE</span><span class="db-col-flag flag-nn">NOT NULL</span></div>
+          <div class="db-col"><span class="db-col-name">effective_date</span><span class="db-col-type">DATE</span><span class="db-col-flag flag-nn">NOT NULL</span></div>
+          <div class="db-col"><span class="db-col-name">amount</span><span class="db-col-type">NUMERIC</span><span class="db-col-flag flag-nn">NOT NULL</span></div>
+          <div class="db-col"><span class="db-col-name">is_shifted</span><span class="db-col-type">BOOLEAN</span><span class="db-col-flag">default F</span></div>
+          <div class="db-col"><span class="db-col-name">shift_override</span><span class="db-col-type">BOOLEAN</span><span class="db-col-flag">default F</span></div>
+        </div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-table-header"><span>📊</span><div class="db-table-name">budget_categories</div></div>
+        <div class="db-table-body">
+          <div class="db-col"><span class="db-col-name">id</span><span class="db-col-type">UUID</span><span class="db-col-flag flag-pk">PK</span></div>
+          <div class="db-col"><span class="db-col-name">user_id</span><span class="db-col-type">UUID</span><span class="db-col-flag flag-fk">FK</span></div>
+          <div class="db-col"><span class="db-col-name">name</span><span class="db-col-type">VARCHAR</span><span class="db-col-flag flag-nn">NOT NULL</span></div>
+          <div class="db-col"><span class="db-col-name">type</span><span class="db-col-type">VARCHAR</span><span class="db-col-flag flag-nn">NOT NULL</span></div>
+          <div class="db-col"><span class="db-col-name">is_fixed</span><span class="db-col-type">BOOLEAN</span><span class="db-col-flag">default F</span></div>
+        </div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-table-header"><span>📋</span><div class="db-table-name">budget_values</div></div>
+        <div class="db-table-body">
+          <div class="db-col"><span class="db-col-name">id</span><span class="db-col-type">UUID</span><span class="db-col-flag flag-pk">PK</span></div>
+          <div class="db-col"><span class="db-col-name">category_id</span><span class="db-col-type">UUID</span><span class="db-col-flag flag-fk">FK</span></div>
+          <div class="db-col"><span class="db-col-name">year</span><span class="db-col-type">INTEGER</span><span class="db-col-flag flag-nn">NOT NULL</span></div>
+          <div class="db-col"><span class="db-col-name">month</span><span class="db-col-type">INTEGER</span><span class="db-col-flag flag-nn">NOT NULL</span></div>
+          <div class="db-col"><span class="db-col-name">planned_amount</span><span class="db-col-type">NUMERIC</span><span class="db-col-flag">default 0</span></div>
+          <div class="db-col"><span class="db-col-name">actual_amount</span><span class="db-col-type">NUMERIC</span><span class="db-col-flag">computed</span></div>
+        </div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-table-header"><span>📈</span><div class="db-table-name">investments</div></div>
+        <div class="db-table-body">
+          <div class="db-col"><span class="db-col-name">id</span><span class="db-col-type">UUID</span><span class="db-col-flag flag-pk">PK</span></div>
+          <div class="db-col"><span class="db-col-name">user_id</span><span class="db-col-type">UUID</span><span class="db-col-flag flag-fk">FK</span></div>
+          <div class="db-col"><span class="db-col-name">symbol</span><span class="db-col-type">VARCHAR</span><span class="db-col-flag flag-nn">NOT NULL</span></div>
+          <div class="db-col"><span class="db-col-name">shares</span><span class="db-col-type">NUMERIC</span><span class="db-col-flag flag-nn">NOT NULL</span></div>
+          <div class="db-col"><span class="db-col-name">asset_type</span><span class="db-col-type">VARCHAR</span><span class="db-col-flag flag-nn">NOT NULL</span></div>
+          <div class="db-col"><span class="db-col-name">current_price</span><span class="db-col-type">NUMERIC</span><span class="db-col-flag">nullable</span></div>
+          <div class="db-col"><span class="db-col-name">liquidity</span><span class="db-col-type">VARCHAR</span><span class="db-col-flag flag-nn">NOT NULL</span></div>
+        </div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-table-header"><span>⚙️</span><div class="db-table-name">user_settings</div></div>
+        <div class="db-table-body">
+          <div class="db-col"><span class="db-col-name">user_id</span><span class="db-col-type">UUID</span><span class="db-col-flag flag-fk">FK · UNIQUE</span></div>
+          <div class="db-col"><span class="db-col-name">currency</span><span class="db-col-type">VARCHAR</span><span class="db-col-flag">CAD</span></div>
+          <div class="db-col"><span class="db-col-name">shift_late_income</span><span class="db-col-type">BOOLEAN</span><span class="db-col-flag">default T</span></div>
+          <div class="db-col"><span class="db-col-name">income_cutoff_day</span><span class="db-col-type">INTEGER</span><span class="db-col-flag">default 20</span></div>
+          <div class="db-col"><span class="db-col-name">fi_target_override</span><span class="db-col-type">NUMERIC</span><span class="db-col-flag">nullable</span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─── SECTION 6: API ROUTES ─────────────────────────────────────────── -->
+  <section>
+    <div class="section-label">API Endpoints — /api/v1</div>
+    <div class="route-grid">
+
+      <div class="route-module">
+        <div class="route-module-header">
+          <span style="color:var(--rose)">🔐</span>
+          <span class="route-module-name" style="color:var(--rose)">Auth</span>
+          <span class="route-module-prefix">/auth</span>
+        </div>
+        <div class="route-list">
+          <div class="route-item"><span class="method method-get">GET</span><span class="route-path">/google — <span>OAuth redirect</span></span></div>
+          <div class="route-item"><span class="method method-get">GET</span><span class="route-path">/google/callback — <span>Session creation</span></span></div>
+          <div class="route-item"><span class="method method-post">POST</span><span class="route-path">/logout — <span>Clear cookie</span></span></div>
+          <div class="route-item"><span class="method method-get">GET</span><span class="route-path">/me — <span>Current user</span></span></div>
+        </div>
+      </div>
+
+      <div class="route-module">
+        <div class="route-module-header">
+          <span style="color:var(--emerald)">💳</span>
+          <span class="route-module-name" style="color:var(--emerald)">Transactions</span>
+          <span class="route-module-prefix">/transactions</span>
+        </div>
+        <div class="route-list">
+          <div class="route-item"><span class="method method-get">GET</span><span class="route-path">/ — <span>List with filters + pagination</span></span></div>
+          <div class="route-item"><span class="method method-post">POST</span><span class="route-path">/ — <span>Create + auto rollover</span></span></div>
+          <div class="route-item"><span class="method method-put">PUT</span><span class="route-path">/:id — <span>Update + recalculate</span></span></div>
+          <div class="route-item"><span class="method method-delete">DEL</span><span class="route-path">/:id — <span>Soft delete</span></span></div>
+          <div class="route-item"><span class="method method-post">POST</span><span class="route-path">/import/csv — <span>Parse + preview</span></span></div>
+          <div class="route-item"><span class="method method-post">POST</span><span class="route-path">/import/confirm — <span>Persist batch</span></span></div>
+          <div class="route-item"><span class="method method-get">GET</span><span class="route-path">/summary — <span>Monthly totals</span></span></div>
+        </div>
+      </div>
+
+      <div class="route-module">
+        <div class="route-module-header">
+          <span style="color:var(--indigo)">📋</span>
+          <span class="route-module-name" style="color:var(--indigo)">Budget</span>
+          <span class="route-module-prefix">/budget</span>
+        </div>
+        <div class="route-list">
+          <div class="route-item"><span class="method method-get">GET</span><span class="route-path">/categories — <span>All categories</span></span></div>
+          <div class="route-item"><span class="method method-post">POST</span><span class="route-path">/categories — <span>Create category</span></span></div>
+          <div class="route-item"><span class="method method-put">PUT</span><span class="route-path">/categories/:id — <span>Update</span></span></div>
+          <div class="route-item"><span class="method method-delete">DEL</span><span class="route-path">/categories/:id — <span>Delete</span></span></div>
+          <div class="route-item"><span class="method method-get">GET</span><span class="route-path">/values — <span>Full year grid</span></span></div>
+          <div class="route-item"><span class="method method-put">PUT</span><span class="route-path">/values — <span>Bulk upsert planned</span></span></div>
+          <div class="route-item"><span class="method method-get">GET</span><span class="route-path">/performance — <span>YTD summary</span></span></div>
+        </div>
+      </div>
+
+      <div class="route-module">
+        <div class="route-module-header">
+          <span style="color:var(--amber)">📈</span>
+          <span class="route-module-name" style="color:var(--amber)">Investments</span>
+          <span class="route-module-prefix">/investments</span>
+        </div>
+        <div class="route-list">
+          <div class="route-item"><span class="method method-get">GET</span><span class="route-path">/ — <span>Holdings + live prices</span></span></div>
+          <div class="route-item"><span class="method method-post">POST</span><span class="route-path">/ — <span>Add holding</span></span></div>
+          <div class="route-item"><span class="method method-put">PUT</span><span class="route-path">/:id — <span>Update holding</span></span></div>
+          <div class="route-item"><span class="method method-delete">DEL</span><span class="route-path">/:id — <span>Remove</span></span></div>
+          <div class="route-item"><span class="method method-get">GET</span><span class="route-path">/summary — <span>Portfolio totals</span></span></div>
+          <div class="route-item"><span class="method method-post">POST</span><span class="route-path">/refresh-prices — <span>Alpha Vantage fetch</span></span></div>
+        </div>
+      </div>
+
+      <div class="route-module">
+        <div class="route-module-header">
+          <span style="color:var(--purple)">🧠</span>
+          <span class="route-module-name" style="color:var(--purple)">Analysis</span>
+          <span class="route-module-prefix">/analysis</span>
+        </div>
+        <div class="route-list">
+          <div class="route-item"><span class="method method-get">GET</span><span class="route-path">/monthly-snapshot — <span>KPI cards data</span></span></div>
+          <div class="route-item"><span class="method method-get">GET</span><span class="route-path">/category-breakdown — <span>Bar chart data</span></span></div>
+          <div class="route-item"><span class="method method-get">GET</span><span class="route-path">/trends — <span>6-month sparklines</span></span></div>
+          <div class="route-item"><span class="method method-get">GET</span><span class="route-path">/spending-insights — <span>Insight chips</span></span></div>
+        </div>
+      </div>
+
+      <div class="route-module">
+        <div class="route-module-header">
+          <span style="color:var(--cyan)">⚙️</span>
+          <span class="route-module-name" style="color:var(--cyan)">Settings</span>
+          <span class="route-module-prefix">/settings</span>
+        </div>
+        <div class="route-list">
+          <div class="route-item"><span class="method method-get">GET</span><span class="route-path">/ — <span>Get user settings</span></span></div>
+          <div class="route-item"><span class="method method-put">PUT</span><span class="route-path">/ — <span>Update + recalculate</span></span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─── LEGEND ─────────────────────────────────────────────────────────── -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--emerald)"></div>Core / Transactions</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--indigo)"></div>Infrastructure / Budget</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--cyan)"></div>Database / Settings</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>External API / Investments</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--rose)"></div>Auth / Security</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Analysis / AI Layer</div>
+    <div class="legend-item" style="margin-left:auto;font-size:10px;color:var(--muted)">
+      Click chips · Click routes · Press ? for shortcuts · Axis Finance v1.0
+    </div>
+  </div>
+
+</main>
+
+<script src="main.js"></script>
+</body>
+</html>

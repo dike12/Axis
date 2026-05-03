@@ -109,15 +109,15 @@ export default function CSVImportModal({ existingTransactions = [], onImport }) 
         const cat = autoCategory(desc);
 
         const txn = {
-          date: row[dateIdx] || "",
-          description: desc,
+          date: normalizeDate(row[dateIdx] || ""),  
+          details: desc,                             
           amount: Math.abs(amt),
           type: isCredit ? "credit" : "debit",
           category: cat === "Income" || isCredit ? "Income" : cat,
         };
 
         txn.isDuplicate = existingTransactions.some(
-          ex => ex.date === txn.date && Math.abs(ex.amount) === txn.amount && ex.details.toLowerCase() === txn.description.toLowerCase()
+          ex.details.toLowerCase() === txn.details.toLowerCase()
         );
         return txn;
       }).filter(t => t.amount > 0);
