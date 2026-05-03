@@ -1,11 +1,93 @@
 import uuid
-from datetime import date
+from datetime import date as dt_date
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_, select
 
 # Import our DB Model and our Pydantic Schema
 from modules.transactions.models import Transaction
 from modules.transactions.schemas import TransactionCreate, TransactionResponse, TransactionUpdate
+
+
+async def get_user_transactions(
+    db: AsyncSession, 
+    user_id: uuid.UUID,
+    page: int = 0,
+    page_size: int = 15,
+    category: str | None = None,
+    tx_type: str | None = None,
+    search: str | None = None,
+    date_from: dt_date | None = None, 
+    date_to: dt_date | None = None
+):
+    # 1. Base query (only active rows)
+    query = select(Transaction).where(
+        Transaction.user_id == user_id,
+        Transaction.deleted_at.is_(None)
+    )
+    
+    # Apply Date Range Filters
+    if date_from:
+        query = query.where(Transaction.date >= date_from)
+    if date_to:
+        query = query.where(Transaction.date <= date_to)
+
+    # 2. Apply Filters dynamically
+    if category and category.lower() != "all":
+        query = query.where(func.lower(Transaction.category) == category.lower())
+    
+    if tx_type and tx_type.lower() != "all":
+        query = query.where(Transaction.type == tx_type.lower())
+        
+    if search:
+        search_term = f"%{search}%"
+        query = query.where(
+            or_(
+                Transaction.description.ilike(search_term),
+                Transaction.category.ilike(search_term)
+            )
+        )
+        
+    # 3. Get total count for frontend pagination math
+    count_query = select(func.count()).select_from(query.subquery())
+    total_count = await db.scalar(count_query) or 0
+    
+    # 4. Apply pagination and ordering
+    query = query.order_by(Transaction.date.desc()).offset(page * page_size).limit(page_size)
+    result = await db.execute(query)
+    
+    return result.scalars().all(), total_count
+
+async def get_transaction(db: AsyncSession, tx_id: uuid.UUID, user_id: uuid.UUID):
+    query = select(Transaction).where(
+        Transaction.id == tx_id,
+        Transaction.user_id == user_id,
+        Transaction.deleted_at.is_(None)
+    )
+    result = await db.execute(query)
+    return result.scalar_one_or_none()
+
+async def get_transaction_summary(db: AsyncSession, user_id: uuid.UUID):
+    # FRS requires total income, total expenses, and net flow[cite: 4]
+    query = select(
+        Transaction.type,
+        func.sum(Transaction.amount).label("total")
+    ).where(
+        Transaction.user_id == user_id,
+        Transaction.deleted_at.is_(None)
+    ).group_by(Transaction.type)
+    
+    result = await db.execute(query)
+    totals = {row.type: float(row.total) for row in result.all()}
+    
+    income = totals.get("credit", 0.0)
+    expenses = abs(totals.get("debit", 0.0))
+    
+    return {
+        "total_income": income,
+        "total_expenses": expenses,
+        "net_flow": income - expenses
+    }
+
 
 async def create_transaction(db: AsyncSession, tx_data: TransactionCreate, user_id: uuid.UUID):
     # 1. Start with the default assumption (No shift)
@@ -25,7 +107,7 @@ async def create_transaction(db: AsyncSession, tx_data: TransactionCreate, user_
             next_month = tx_data.date.month + 1
             next_year = tx_data.date.year
             
-        effective_date = date(next_year, next_month, 1)
+        effective_date = dt_date(next_year, next_month, 1)
 
     # 3. Translate Pydantic (tx_data) into SQLAlchemy (new_tx)
     new_tx = Transaction(
@@ -48,19 +130,13 @@ async def create_transaction(db: AsyncSession, tx_data: TransactionCreate, user_
     return new_tx
 
 
-async def get_user_transactions(db: AsyncSession, user_id: uuid.UUID):
-    # Build the SQL query: SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC
-    query = select(Transaction).where(Transaction.user_id == user_id).order_by(Transaction.date.desc())
-    
-    # Execute the query
-    result = await db.execute(query)
-    
-    # Extract the rows and return them as a list
-    return result.scalars().all()
-
 async def update_transaction(db: AsyncSession, tx_id: uuid.UUID, user_id: uuid.UUID, update_data: TransactionUpdate):
     # 1. Find the transaction
-    query = select(Transaction).where(Transaction.id == tx_id, Transaction.user_id == user_id)
+    query = select(Transaction).where(
+        Transaction.id == tx_id, 
+        Transaction.user_id == user_id,
+        Transaction.deleted_at.is_(None)
+    )
     result = await db.execute(query)
     tx = result.scalar_one_or_none()
     
@@ -78,9 +154,9 @@ async def update_transaction(db: AsyncSession, tx_id: uuid.UUID, user_id: uuid.U
         if tx.type == "credit" and tx.date.day >= 20 and not tx.shift_override:
             tx.is_shifted = True
             if tx.date.month == 12:
-                tx.effective_date = date(tx.date.year + 1, 1, 1)
+                tx.effective_date = dt_date(tx.date.year + 1, 1, 1)
             else:
-                tx.effective_date = date(tx.date.year, tx.date.month + 1, 1)
+                tx.effective_date = dt_date(tx.date.year, tx.date.month + 1, 1)
         else:
             tx.is_shifted = False
             tx.effective_date = tx.date
@@ -91,13 +167,17 @@ async def update_transaction(db: AsyncSession, tx_id: uuid.UUID, user_id: uuid.U
     return tx
 
 async def delete_transaction(db: AsyncSession, tx_id: uuid.UUID, user_id: uuid.UUID):
-    query = select(Transaction).where(Transaction.id == tx_id, Transaction.user_id == user_id)
+    query = select(Transaction).where(
+        Transaction.id == tx_id, 
+        Transaction.user_id == user_id,
+        Transaction.deleted_at.is_(None)
+    )
     result = await db.execute(query)
     tx = result.scalar_one_or_none()
     
     if not tx:
         return False
         
-    await db.delete(tx)
+    tx.deleted_at = func.now()
     await db.commit()
     return True
