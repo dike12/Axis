@@ -1,5 +1,6 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import date as dt_date
 
@@ -20,8 +21,14 @@ from modules.transactions.service import (
 # 1. Initialize the router
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
+def not_found(message: str = "Transaction not found") -> JSONResponse:
+    return JSONResponse(
+        status_code=404,
+        content={"data": None, "error": {"code": "NOT_FOUND", "message": message}}
+    )
+
 # 2. Create the endpoint
-@router.post("/")
+@router.post("/", status_code=201)
 async def add_transaction(tx_data: TransactionCreate, db: AsyncSession = Depends(get_db)):
     """
     Create a new transaction. 
@@ -85,7 +92,7 @@ async def fetch_transaction(tx_id: uuid.UUID, db: AsyncSession = Depends(get_db)
     tx = await get_transaction(db, tx_id, fake_user_id)
     
     if not tx:
-        raise HTTPException(status_code=404, detail="Transaction not found")
+        return not_found()
         
     return {"data": TransactionResponse.model_validate(tx), "error": None}
 
@@ -95,7 +102,7 @@ async def edit_transaction(tx_id: uuid.UUID, update_data: TransactionUpdate, db:
     
     updated_tx = await update_transaction(db, tx_id, fake_user_id, update_data)
     if not updated_tx:
-        raise HTTPException(status_code=404, detail="Transaction not found")
+        return not_found()
         
     return {"data": TransactionResponse.model_validate(updated_tx), "error": None}
 
@@ -105,6 +112,6 @@ async def remove_transaction(tx_id: uuid.UUID, db: AsyncSession = Depends(get_db
     
     success = await delete_transaction(db, tx_id, fake_user_id)
     if not success:
-        raise HTTPException(status_code=404, detail="Transaction not found")
+        return not_found()
         
     return {"data": None, "error": None, "meta": {"message": "Deleted successfully"}}

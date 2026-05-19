@@ -9,20 +9,24 @@ const SHIFT_LATE_INCOME = true;
 const typeColors = {
   income: "border-emerald-500/50 focus-within:border-emerald-500",
   expense: "border-rose-500/50 focus-within:border-rose-500",
-  investment: "border-blue-500/50 focus-within:border-blue-500",
   saving: "border-amber-500/50 focus-within:border-amber-500",
 };
 
 const typeTextColors = {
   income: "text-emerald-400",
   expense: "text-rose-400",
-  investment: "text-blue-400",
   saving: "text-amber-400",
 };
 
 export default function AddTransactionModal({ trigger, onAdd }) {
-  const { addTransaction } = useFinance(); // Global State
+  const { addTransaction, budgetCategories } = useFinance();
   const [open, setOpen] = useState(false);
+
+  const categoryOptions = useMemo(() => ({
+  income:     budgetCategories.filter(c => c.type === "income").map(c => c.name),
+  expense:    budgetCategories.filter(c => c.type === "expense").map(c => c.name),
+  saving:     budgetCategories.filter(c => c.type === "savings").map(c => c.name)
+}), [budgetCategories]);
 
   // 1. Automatically grab today's date in YYYY-MM-DD format
   const getLocalDateString = () => {
@@ -117,8 +121,8 @@ export default function AddTransactionModal({ trigger, onAdd }) {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="space-y-2">
                 <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Type</label>
-                <div className="grid grid-cols-4 gap-1 bg-[#0B0E14] border border-gray-800 rounded-lg p-1">
-                  {["income", "expense", "investment", "saving"].map((t) => (
+                  <div className="grid grid-cols-3 gap-1 bg-[#0B0E14] border border-gray-800 rounded-lg p-1">
+                  {["income", "expense", "saving"].map((t) => (
                     <button
                       key={t}
                       type="button"
@@ -154,10 +158,11 @@ export default function AddTransactionModal({ trigger, onAdd }) {
                 <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Category</label>
                 <select required value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
                   <option value="" disabled>Select category</option>
-                  {type === "income" && <><option value="Salary">Salary</option><option value="Freelance">Freelance</option><option value="Dividends">Dividends</option></>}
-                  {type === "investment" && <><option value="Stocks">Stocks</option><option value="Bonds">Bonds</option><option value="Crypto">Crypto</option></>}
-                  {type === "saving" && <><option value="401k">401k</option><option value="Emergency Fund">Emergency Fund</option></>}
-                  {(!type || type === "expense") && <><option value="Food">Food</option><option value="Shopping">Shopping</option><option value="Utilities">Utilities</option><option value="Transport">Transport</option><option value="Entertainment">Entertainment</option></>}
+                  {(categoryOptions[type] ?? []).map(name => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
                 </select>
               </div>
 

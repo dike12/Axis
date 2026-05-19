@@ -18,7 +18,7 @@ const performanceTooltips = {
   Savings: "Total money saved or invested",
 };
 
-function EditableCell({ value, colorClass, onChange }) {
+function EditableCell({ value, colorClass, onChange, onFillRow }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value));
   const inputRef = useRef(null);
@@ -45,12 +45,45 @@ function EditableCell({ value, colorClass, onChange }) {
   }
 
   return (
-    <td
-      className={cn("px-4 py-2.5 text-right cursor-pointer hover:bg-white/5 rounded transition-colors whitespace-nowrap", colorClass)}
-      onClick={() => { setDraft(String(value)); setEditing(true); }}
-    >
+    <td onClick={() => setEditing(true)}
+        onDoubleClick={() => onFillRow?.(value)}
+        title="Double-click to fill row">
       {formatCurrency(value)}
     </td>
+  );
+}
+
+function EditableCategoryName({ category, onUpdate }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(category.name);
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== category.name) {
+      onUpdate(category.id, { name: trimmed });
+    } else {
+      setDraft(category.name); // revert if empty
+    }
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(category.name); setEditing(false); } }}
+        className="w-full bg-[#1A1F26] border border-emerald-500/40 rounded px-1.5 py-0.5 text-sm text-white focus:outline-none"
+      />
+    );
+  }
+
+  return (
+    <span onDoubleClick={() => setEditing(true)} className="cursor-pointer hover:text-white transition-colors">
+      {category.name}
+    </span>
   );
 }
 
@@ -149,8 +182,8 @@ function InlineAddCategory({ onAdd }) {
 
 // --- MAIN PLANNER COMPONENT ---
 export default function BudgetPlanner({ toggleSidebar }) {
-  const { plannerData, updatePlannerData } = useFinance();
-  const [viewMode, setViewMode] = useState("actual");
+  const { plannerData, updatePlannerData, addBudgetCategory, updateBudgetValue, deleteBudgetCategory, selectedYear, setSelectedYear, loading, updateBudgetCategory, performance } = useFinance();
+  const [viewMode, setViewMode] = useState("budget");
 
   // Read Global State
   const incomeCategories = plannerData.actualIncome;
@@ -173,32 +206,36 @@ export default function BudgetPlanner({ toggleSidebar }) {
   const budgetIncomeTotal = budgetIncomeCategories.reduce((acc, cat) => acc.map((val, i) => val + cat.values[i]), new Array(12).fill(0));
   const budgetExpenseTotal = budgetExpenseCategories.reduce((acc, cat) => acc.map((val, i) => val + cat.values[i]), new Array(12).fill(0));
 
-  const netSavings = incomeTotal.map((income, i) => income - expenseTotal[i]);
+  const actualNetSavings = incomeTotal.map((income, i) => income - expenseTotal[i] - savingsTotal[i]);
+  const budgetSavingsTotal = budgetSavingsCategories.reduce(
+    (acc, cat) => acc.map((val, i) => val + cat.values[i]), new Array(12).fill(0)
+  );
+  const budgetNetSavings = budgetIncomeTotal.map((income, i) => income - budgetExpenseTotal[i] - budgetSavingsTotal[i]);
+  const deltaNetSavings  = actualNetSavings.map((v, i) => v - budgetNetSavings[i]);
 
-  const plannedIncome = calculateTotal(budgetIncomeTotal);
-  const plannedExpenses = calculateTotal(budgetExpenseTotal);
-  const plannedSavings = budgetSavingsCategories.reduce((sum, cat) => sum + calculateTotal(cat.values), 0);
+  const netSavings =
+    viewMode === "budget" ? budgetNetSavings :
+    viewMode === "delta"  ? deltaNetSavings  :
+    actualNetSavings;
 
-  const actualIncomeTotal = incomeCategories.reduce((sum, cat) => sum + calculateTotal(cat.values), 0);
-  const actualExpenseTotal = expenseCategories.reduce((sum, cat) => sum + calculateTotal(cat.values), 0);
-  const actualSavingsTotal = savingsCategories.reduce((sum, cat) => sum + calculateTotal(cat.values), 0);
+  const pData = performance || {
+      income: { planned: 0, actual: 0 },
+      expenses: { planned: 0, actual: 0 },
+      savings: { planned: 0, actual: 0 }
+    };
 
   // Actions
-  const addCategory = (setter, name) => {
-    setter((prev) => [...prev, { name, icon: "💰", fixed: false, values: new Array(12).fill(0) }]);
-  };
+  
 
-  const removeCategory = (setter, catIdx) => {
+  const removeCategory = async (categories, setter, catIdx) => {
+    const catToDelete = categories[catIdx];
+    if (!catToDelete) return;
+    if (catToDelete.id) {
+      await deleteBudgetCategory(catToDelete.id);
+    }
     setter((prev) => prev.filter((_, i) => i !== catIdx));
   };
 
-  const updateCellValue = (setter, catIdx, monthIdx, value) => {
-    setter((prev) =>
-      prev.map((cat, i) =>
-        i === catIdx ? { ...cat, values: cat.values.map((v, j) => (j === monthIdx ? value : v)) } : cat
-      )
-    );
-  };
 
   const getCellValue = (actual, budget) => {
     if (viewMode === "budget") return budget;
@@ -214,16 +251,20 @@ export default function BudgetPlanner({ toggleSidebar }) {
 
   const renderCategoryRows = (categories, budgetCategories, setter, colorClass, isExpense = false) => {
     return categories.map((category, catIdx) => {
-      const budgetCat = budgetCategories.find(b => b.name === category.name);
+      const budgetCat = budgetCategories.find(b => b.id === category.id) 
+               ?? budgetCategories.find(b => b.name === category.name);
       const budgetValues = budgetCat?.values || new Array(12).fill(0);
 
       return (
         <tr key={category.name} className="group border-b border-gray-800/50 hover:bg-[#1A1F26]/30 transition-colors">
           <td className="sticky left-0 bg-[#11141B] group-hover:bg-[#151821] px-4 py-2.5 font-medium text-gray-200 z-10 border-r border-gray-800/50">
-            <span className="flex items-center gap-1">
-              {category.name}
+            <span className="flex items-center justify-between gap-1 w-full">
+              <EditableCategoryName 
+                category={category} 
+                onUpdate={updateBudgetCategory} 
+              />
               <button 
-                onClick={() => removeCategory(setter, catIdx)} 
+                onClick={() => removeCategory(categories, setter, catIdx)}
                 className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-500 hover:text-rose-400 ml-1" 
                 title="Remove category"
               >
@@ -235,11 +276,25 @@ export default function BudgetPlanner({ toggleSidebar }) {
             const cellVal = getCellValue(value, budgetValues[i]);
             const deltaColor = viewMode === "delta" ? getDeltaColor(value - budgetValues[i], isExpense) : "";
 
-            if (viewMode === "actual") {
+            if (viewMode === "budget") {
               return (
                 <EditableCell
-                  key={i} value={value} colorClass={colorClass}
-                  onChange={(v) => updateCellValue(setter, catIdx, i, v)}
+                    key={i}
+                    value={budgetValues[i]}
+                    colorClass={colorClass}
+                    onChange={(v) =>
+                      updateBudgetValue(
+                        category.id, selectedYear, i+1, v
+                      )}
+                    onFillRow={(v) =>
+                       bulkUpdateBudgetValues(
+                        Array.from({ length: 12 }, (_, m) => ({
+                          category_id: category.id,
+                          year: selectedYear,
+                          month: m + 1,
+                          planned_amount: v
+                        }))
+                      )}
                 />
               );
             }
@@ -271,16 +326,33 @@ export default function BudgetPlanner({ toggleSidebar }) {
         <div className="bg-[#11141B] border border-gray-800 rounded-xl p-6">
           <h3 className="text-lg font-medium mb-6">Performance Summary</h3>
           <div className="space-y-5">
-            <PerformanceBar label="Income" planned={plannedIncome} actual={actualIncomeTotal} type="income" />
-            <PerformanceBar label="Expenses" planned={plannedExpenses} actual={actualExpenseTotal} type="expense" />
-            <PerformanceBar label="Savings" planned={plannedSavings} actual={actualSavingsTotal} type="savings" />
+            <PerformanceBar label="Income" planned={pData.income.planned} actual={pData.income.actual} type="income" />
+            <PerformanceBar label="Expenses" planned={pData.expenses.planned} actual={pData.expenses.actual} type="expense" />
+            <PerformanceBar label="Savings" planned={pData.savings.planned} actual={pData.savings.actual} type="savings" />
           </div>
         </div>
 
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSelectedYear(y => y - 1)}
+            className="px-2 py-1 text-gray-400 hover:text-white rounded hover:bg-white/5 transition-colors"
+          >
+            ‹
+          </button>
+          <span className="text-lg font-medium">{selectedYear} Budget Overview</span>
+          <button
+            onClick={() => setSelectedYear(y => y + 1)}
+            disabled={selectedYear >= new Date().getFullYear()}
+            className="px-2 py-1 text-gray-400 hover:text-white rounded hover:bg-white/5 transition-colors disabled:opacity-30"
+          >
+            ›
+          </button>
+        </div>
+        
         <div className="bg-[#11141B] border border-gray-800 rounded-xl overflow-hidden">
           
           <div className="p-6 border-b border-gray-800 flex items-center justify-between">
-            <h3 className="text-lg font-medium">2024 Budget Overview</h3>
+            <h3 className="text-lg font-medium"> {selectedYear} Budget Overview</h3>
             <div className="flex bg-[#0B0E14] border border-gray-800 rounded-lg p-0.5">
               {["actual", "budget", "delta"].map((mode) => (
                 <button
@@ -296,83 +368,88 @@ export default function BudgetPlanner({ toggleSidebar }) {
               ))}
             </div>
           </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-gray-400 bg-[#1A1F26]">
-                <tr>
-                  <th className="sticky left-0 z-20 bg-[#1A1F26] px-4 py-3 font-medium min-w-[160px] border-r border-gray-800 border-b">Category</th>
-                  {months.map((month) => (
-                    <th key={month} className="px-4 py-3 font-medium text-right min-w-[100px] border-b border-gray-800">{month}</th>
-                  ))}
-                  <th className="px-4 py-3 font-medium text-right min-w-[120px] bg-[#222831] border-b border-gray-800">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800/50">
-                
-                {/* --- INCOME --- */}
-                <tr className="bg-emerald-500/10">
-                  <td colSpan={14} className="px-4 py-3 font-semibold text-emerald-400 sticky left-0 bg-[#0c1a15] border-r border-gray-800/50">Income</td>
-                </tr>
-                {renderCategoryRows(incomeCategories, budgetIncomeCategories, setIncomeCategories, "text-emerald-400")}
-                {viewMode === "actual" && <InlineAddCategory onAdd={(name) => addCategory(setIncomeCategories, name)} />}
-                
-                <tr className="bg-[#1A1F26] border-y border-gray-700">
-                  <td className="sticky left-0 bg-[#1A1F26] px-4 py-3 font-bold text-white border-r border-gray-700">Total Income</td>
-                  {(viewMode === "budget" ? budgetIncomeTotal : viewMode === "delta" ? incomeTotal.map((v, i) => v - budgetIncomeTotal[i]) : incomeTotal).map((value, i) => (
-                    <td key={i} className={cn("px-4 py-3 text-right font-bold whitespace-nowrap", viewMode === "delta" ? (value >= 0 ? "text-emerald-400" : "text-rose-400") : "text-emerald-400")}>
-                      {viewMode === "delta" && value > 0 ? "+" : ""}{formatCurrency(value)}
+            
+          {loading ? (
+              <div className="p-12 text-center text-gray-500">Loading budget data…</div>
+            ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-gray-400 bg-[#1A1F26]">
+                  <tr>
+                    <th className="sticky left-0 z-20 bg-[#1A1F26] px-4 py-3 font-medium min-w-[160px] border-r border-gray-800 border-b">Category</th>
+                    {months.map((month) => (
+                      <th key={month} className="px-4 py-3 font-medium text-right min-w-[100px] border-b border-gray-800">{month}</th>
+                    ))}
+                    <th className="px-4 py-3 font-medium text-right min-w-[120px] bg-[#222831] border-b border-gray-800">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800/50">
+                  
+                  {/* --- INCOME --- */}
+                  <tr className="bg-emerald-500/10">
+                    <td colSpan={14} className="px-4 py-3 font-semibold text-emerald-400 sticky left-0 bg-[#0c1a15] border-r border-gray-800/50">Income</td>
+                  </tr>
+                  {renderCategoryRows(incomeCategories, budgetIncomeCategories, setIncomeCategories, "text-emerald-400")}
+                  {viewMode === "budget" && <InlineAddCategory onAdd={(name) => addBudgetCategory(name, "income")} />}
+                  
+                  <tr className="bg-[#1A1F26] border-y border-gray-700">
+                    <td className="sticky left-0 bg-[#1A1F26] px-4 py-3 font-bold text-white border-r border-gray-700">Total Income</td>
+                    {(viewMode === "budget" ? budgetIncomeTotal : viewMode === "delta" ? incomeTotal.map((v, i) => v - budgetIncomeTotal[i]) : incomeTotal).map((value, i) => (
+                      <td key={i} className={cn("px-4 py-3 text-right font-bold whitespace-nowrap", viewMode === "delta" ? (value >= 0 ? "text-emerald-400" : "text-rose-400") : "text-emerald-400")}>
+                        {viewMode === "delta" && value > 0 ? "+" : ""}{formatCurrency(value)}
+                      </td>
+                    ))}
+                    <td className={cn("px-4 py-3 text-right font-bold bg-[#222831] whitespace-nowrap", viewMode === "delta" ? (calculateTotal(incomeTotal) - calculateTotal(budgetIncomeTotal) >= 0 ? "text-emerald-400" : "text-rose-400") : "text-emerald-400")}>
+                      {viewMode === "delta" && (calculateTotal(incomeTotal) - calculateTotal(budgetIncomeTotal)) > 0 ? "+" : ""}
+                      {formatCurrency(viewMode === "budget" ? calculateTotal(budgetIncomeTotal) : viewMode === "delta" ? calculateTotal(incomeTotal) - calculateTotal(budgetIncomeTotal) : calculateTotal(incomeTotal))}
                     </td>
-                  ))}
-                  <td className={cn("px-4 py-3 text-right font-bold bg-[#222831] whitespace-nowrap", viewMode === "delta" ? (calculateTotal(incomeTotal) - calculateTotal(budgetIncomeTotal) >= 0 ? "text-emerald-400" : "text-rose-400") : "text-emerald-400")}>
-                    {viewMode === "delta" && (calculateTotal(incomeTotal) - calculateTotal(budgetIncomeTotal)) > 0 ? "+" : ""}
-                    {formatCurrency(viewMode === "budget" ? calculateTotal(budgetIncomeTotal) : viewMode === "delta" ? calculateTotal(incomeTotal) - calculateTotal(budgetIncomeTotal) : calculateTotal(incomeTotal))}
-                  </td>
-                </tr>
+                  </tr>
 
-                {/* --- EXPENSES --- */}
-                <tr className="bg-rose-500/10">
-                  <td colSpan={14} className="px-4 py-3 font-semibold text-rose-400 sticky left-0 bg-[#1a0f12] border-r border-gray-800/50">Expenses</td>
-                </tr>
-                {renderCategoryRows(expenseCategories, budgetExpenseCategories, setExpenseCategories, "text-rose-400", true)}
-                {viewMode === "actual" && <InlineAddCategory onAdd={(name) => addCategory(setExpenseCategories, name)} />}
-                
-                <tr className="bg-[#1A1F26] border-y border-gray-700">
-                  <td className="sticky left-0 bg-[#1A1F26] px-4 py-3 font-bold text-white border-r border-gray-700">Total Expenses</td>
-                  {(viewMode === "budget" ? budgetExpenseTotal : viewMode === "delta" ? expenseTotal.map((v, i) => v - budgetExpenseTotal[i]) : expenseTotal).map((value, i) => (
-                    <td key={i} className={cn("px-4 py-3 text-right font-bold whitespace-nowrap", viewMode === "delta" ? (value > 0 ? "text-rose-400" : "text-emerald-400") : "text-rose-400")}>
-                      {viewMode === "delta" && value > 0 ? "+" : ""}{formatCurrency(value)}
+                  {/* --- EXPENSES --- */}
+                  <tr className="bg-rose-500/10">
+                    <td colSpan={14} className="px-4 py-3 font-semibold text-rose-400 sticky left-0 bg-[#1a0f12] border-r border-gray-800/50">Expenses</td>
+                  </tr>
+                  {renderCategoryRows(expenseCategories, budgetExpenseCategories, setExpenseCategories, "text-rose-400", true)}
+                  {viewMode === "budget" && <InlineAddCategory onAdd={(name) => addBudgetCategory(name, "expense")} />}
+                  
+                  <tr className="bg-[#1A1F26] border-y border-gray-700">
+                    <td className="sticky left-0 bg-[#1A1F26] px-4 py-3 font-bold text-white border-r border-gray-700">Total Expenses</td>
+                    {(viewMode === "budget" ? budgetExpenseTotal : viewMode === "delta" ? expenseTotal.map((v, i) => v - budgetExpenseTotal[i]) : expenseTotal).map((value, i) => (
+                      <td key={i} className={cn("px-4 py-3 text-right font-bold whitespace-nowrap", viewMode === "delta" ? (value > 0 ? "text-rose-400" : "text-emerald-400") : "text-rose-400")}>
+                        {viewMode === "delta" && value > 0 ? "+" : ""}{formatCurrency(value)}
+                      </td>
+                    ))}
+                    <td className={cn("px-4 py-3 text-right font-bold bg-[#222831] whitespace-nowrap", viewMode === "delta" ? (calculateTotal(expenseTotal) - calculateTotal(budgetExpenseTotal) > 0 ? "text-rose-400" : "text-emerald-400") : "text-rose-400")}>
+                      {viewMode === "delta" && (calculateTotal(expenseTotal) - calculateTotal(budgetExpenseTotal)) > 0 ? "+" : ""}
+                      {formatCurrency(viewMode === "budget" ? calculateTotal(budgetExpenseTotal) : viewMode === "delta" ? calculateTotal(expenseTotal) - calculateTotal(budgetExpenseTotal) : calculateTotal(expenseTotal))}
                     </td>
-                  ))}
-                  <td className={cn("px-4 py-3 text-right font-bold bg-[#222831] whitespace-nowrap", viewMode === "delta" ? (calculateTotal(expenseTotal) - calculateTotal(budgetExpenseTotal) > 0 ? "text-rose-400" : "text-emerald-400") : "text-rose-400")}>
-                    {viewMode === "delta" && (calculateTotal(expenseTotal) - calculateTotal(budgetExpenseTotal)) > 0 ? "+" : ""}
-                    {formatCurrency(viewMode === "budget" ? calculateTotal(budgetExpenseTotal) : viewMode === "delta" ? calculateTotal(expenseTotal) - calculateTotal(budgetExpenseTotal) : calculateTotal(expenseTotal))}
-                  </td>
-                </tr>
+                  </tr>
 
-                {/* --- SAVINGS --- */}
-                <tr className="bg-blue-500/10">
-                  <td colSpan={14} className="px-4 py-3 font-semibold text-blue-400 sticky left-0 bg-[#0e1624] border-r border-gray-800/50">Savings</td>
-                </tr>
-                {renderCategoryRows(savingsCategories, budgetSavingsCategories, setSavingsCategories, "text-blue-400")}
-                {viewMode === "actual" && <InlineAddCategory onAdd={(name) => addCategory(setSavingsCategories, name)} />}
-
-                {/* --- NET SAVINGS --- */}
-                <tr className="bg-emerald-500/20">
-                  <td className="sticky left-0 bg-[#122820] px-4 py-4 font-bold text-emerald-400 border-r border-gray-700">Net Savings</td>
-                  {netSavings.map((value, i) => (
-                    <td key={i} className={cn("px-4 py-4 text-right font-bold whitespace-nowrap", value >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                      {formatCurrency(value)}
+                  {/* --- SAVINGS --- */}
+                  <tr className="bg-blue-500/10">
+                    <td colSpan={14} className="px-4 py-3 font-semibold text-blue-400 sticky left-0 bg-[#0e1624] border-r border-gray-800/50">Savings</td>
+                  </tr>
+                  {renderCategoryRows(savingsCategories, budgetSavingsCategories, setSavingsCategories, "text-blue-400")}
+                  {viewMode === "budget" && <InlineAddCategory onAdd={(name) => addBudgetCategory(name, "savings")} />}
+                  
+                  {/* --- NET SAVINGS --- */}
+                  <tr className="bg-emerald-500/20">
+                    <td className="sticky left-0 bg-[#122820] px-4 py-4 font-bold text-emerald-400 border-r border-gray-700">Net Savings</td>
+                    {netSavings.map((value, i) => (
+                      <td key={i} className={cn("px-4 py-4 text-right font-bold whitespace-nowrap", value >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                        {viewMode === "delta" && value > 0 ? "+" : ""}{formatCurrency(value)}
+                      </td>
+                    ))}
+                    <td className="px-4 py-4 text-right font-bold text-emerald-400 bg-[#153026] whitespace-nowrap">
+                      {viewMode === "delta" && calculateTotal(netSavings) > 0 ? "+" : ""}
+                      {formatCurrency(calculateTotal(netSavings))}
                     </td>
-                  ))}
-                  <td className="px-4 py-4 text-right font-bold text-emerald-400 bg-[#153026] whitespace-nowrap">
-                    {formatCurrency(calculateTotal(netSavings))}
-                  </td>
-                </tr>
+                  </tr>
 
-              </tbody>
-            </table>
-          </div>
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

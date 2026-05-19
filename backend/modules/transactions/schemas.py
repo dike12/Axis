@@ -35,6 +35,8 @@ class TransactionResponse(TransactionCreate):
     created_at: dt_datetime
     updated_at: dt_datetime
     deleted_at: dt_datetime | None
+    import_source: str | None = None
+    import_batch_id: uuid.UUID | None = None
 
     # This tells Pydantic: "It's okay to read data directly from a SQLAlchemy model"
     model_config = ConfigDict(from_attributes=True)
