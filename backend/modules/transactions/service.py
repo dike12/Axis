@@ -1,5 +1,5 @@
 import uuid
-from datetime import date as dt_date
+from datetime import date as dt_date, datetime as dt_datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_, select
 
@@ -178,6 +178,58 @@ async def delete_transaction(db: AsyncSession, tx_id: uuid.UUID, user_id: uuid.U
     if not tx:
         return False
         
-    tx.deleted_at = func.now()
+    tx.deleted_at = dt_datetime.now(timezone.utc)
     await db.commit()
     return True
+
+
+async def get_category_actuals_for_year(
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    year: int
+) -> dict:
+    """
+    Computes per-category monthly actuals from transactions.
+    Called by the budget module — exported as the cross-module interface.
+    Returns: { "Category Name": { 1: 150.0, 2: 200.0, ... } }
+    """
+    from sqlalchemy import extract, func, and_
+
+    result = await db.execute(
+        select(
+            Transaction.category,
+            extract('month', Transaction.effective_date).label('month'),
+            Transaction.type,
+            func.sum(Transaction.amount).label('total_amount')
+        )
+        .where(
+            and_(
+                Transaction.user_id == user_id,
+                Transaction.deleted_at.is_(None),
+                extract('year', Transaction.effective_date) == year
+            )
+        )
+        .group_by(
+            Transaction.category,
+            extract('month', Transaction.effective_date),
+            Transaction.type
+        )
+    )
+
+    rows = result.all()
+    actuals: dict = {}
+
+    for row in rows:
+        cat_name = row.category
+        month = int(row.month)
+        total = float(row.total_amount)
+
+        if cat_name not in actuals:
+            actuals[cat_name] = {m: 0.0 for m in range(1, 13)}
+
+        if row.type == 'debit':
+            actuals[cat_name][month] += abs(total)
+        elif row.type == 'credit':
+            actuals[cat_name][month] += total
+
+    return actuals

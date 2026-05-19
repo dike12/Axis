@@ -4,3 +4,4 @@ sqlalchemy
 pydantic-settings
 uvicorn[standard]
 alembic
+cachetools==5.3.3

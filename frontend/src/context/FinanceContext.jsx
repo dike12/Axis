@@ -2,16 +2,6 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 
 const FinanceContext = createContext();
 
-// ─── TRANSACTIONS & HOLDINGS (Keep your existing mock data here) ───
-const initialTransactions = [
-  { id: 1,  date: "2024-01-15", category: "Income",        details: "Salary Deposit",         amount: 8500,    type: "credit" },
-  { id: 2,  date: "2024-01-14", category: "Shopping",      details: "Amazon Purchase",        amount: -156.99, type: "debit"  },
-  { id: 3,  date: "2024-01-13", category: "Food",          details: "Whole Foods",            amount: -89.50,  type: "debit"  },
-  { id: 4,  date: "2024-01-12", category: "Investment",    details: "Stock Purchase - AAPL",  amount: -2500,   type: "debit"  },
-  { id: 5,  date: "2024-01-11", category: "Utilities",     details: "Electric Bill",          amount: -145.00, type: "debit"  },
-  { id: 6,  date: "2024-01-10", category: "Income",        details: "Dividend Payment",       amount: 125.50,  type: "credit" },
-];
-
 const initialHoldings = [
   { symbol: "VDY.TO", name: "Vanguard Cdn High Div Yield", shares: 350, price: 42.15, change: 0.45, value: 14752, allocation: 24.2, assetType: "etf" },
   { symbol: "TD.TO", name: "Toronto-Dominion Bank", shares: 120, price: 78.40, change: -0.25, value: 9408, allocation: 15.4, assetType: "stock" },
@@ -22,57 +12,23 @@ const initialHoldings = [
 ];
 
 // ─── PLANNER & ANALYSIS DATA ───
-const defaultIncomeCategories = [
-  { name: "Salary", icon: "💼", fixed: true, values: [8500, 8500, 8500, 8500, 8500, 8500, 9000, 9000, 9000, 9000, 9000, 9000] },
-  { name: "Freelance", icon: "💻", fixed: false, values: [1200, 800, 1500, 600, 1800, 2200, 900, 1100, 1600, 2000, 1400, 1800] },
-  { name: "Dividends", icon: "📈", fixed: false, values: [0, 0, 450, 0, 0, 480, 0, 0, 510, 0, 0, 540] },
-];
-
-const defaultExpenseCategories = [
-  { name: "Housing", icon: "🏠", fixed: true, values: [2200, 2200, 2200, 2200, 2200, 2200, 2200, 2200, 2200, 2200, 2200, 2200] },
-  { name: "Food", icon: "🍔", fixed: false, values: [750, 528, 650, 590, 520, 480, 680, 590, 710, 660, 620, 750] },
-  { name: "Utilities", icon: "⚡", fixed: false, values: [165, 195, 142, 165, 195, 180, 168, 185, 150, 142, 158, 175] },
-  { name: "Transportation", icon: "🚗", fixed: false, values: [320, 290, 320, 290, 310, 280, 300, 275, 320, 295, 330, 360] },
-  { name: "Entertainment", icon: "🎬", fixed: false, values: [200, 180, 190, 200, 180, 150, 180, 240, 200, 260, 190, 280] },
-  { name: "Insurance", icon: "🛡️", fixed: true, values: [450, 450, 450, 450, 450, 450, 450, 450, 450, 450, 450, 450] },
-  { name: "Shopping", icon: "🛒", fixed: false, values: [235, 157, 180, 150, 200, 120, 250, 180, 210, 160, 190, 280] },
-  { name: "Subscriptions", icon: "📱", fixed: true, values: [85, 85, 85, 95, 85, 85, 95, 85, 85, 85, 95, 85] },
-  { name: "Health", icon: "💊", fixed: false, values: [45, 0, 0, 45, 60, 0, 45, 50, 0, 80, 0, 45] },
-];
-
-const defaultSavingsCategories = [
-  { name: "401k", icon: "🏦", fixed: true, values: [1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500] },
-  { name: "Emergency Fund", icon: "🚑", fixed: false, values: [500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500] },
-];
-
-const budgetIncomeCategories = [
-  { name: "Salary", values: [8500, 8500, 8500, 8500, 8500, 8500, 8500, 8500, 8500, 8500, 8500, 8500] },
-  { name: "Freelance", values: [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000] },
-  { name: "Dividends", values: [0, 0, 400, 0, 0, 400, 0, 0, 400, 0, 0, 400] },
-];
-
-const budgetExpenseCategories = [
-  { name: "Housing", values: [2200, 2200, 2200, 2200, 2200, 2200, 2200, 2200, 2200, 2200, 2200, 2200] },
-  { name: "Food", values: [600, 600, 600, 600, 600, 600, 600, 600, 600, 600, 600, 600] },
-  { name: "Utilities", values: [175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175, 175] },
-  { name: "Transportation", values: [300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300, 300] },
-  { name: "Entertainment", values: [200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200, 200] },
-  { name: "Insurance", values: [450, 450, 450, 450, 450, 450, 450, 450, 450, 450, 450, 450] },
-  { name: "Shopping", values: [150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150] },
-  { name: "Subscriptions", values: [85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85] },
-  { name: "Health", values: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100] },
-];
-
-const budgetSavingsCategories = [
-  { name: "401k", values: [1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500] },
-  { name: "Emergency Fund", values: [500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500] },
-];
+const defaultIncomeCategories = [];
+const defaultExpenseCategories = [];
+const defaultSavingsCategories = [];
+const budgetIncomeCategories = [];
+const budgetExpenseCategories = [];
+const budgetSavingsCategories = [];
 
 export function FinanceProvider({ children }) {
-  // 1. Start with an empty array instead of the mock data
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear()); 
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // getMonth() is 0-indexed (Jan = 0)
+  const [summary, setSummary] = useState({ total_income: 0, total_expenses: 0, net_flow: 0 });
   const [transactions, setTransactions] = useState([]);
   const [holdings, setHoldings] = useState(initialHoldings);
   const [loading, setLoading] = useState(true); // Added a loading state
+  const [performance, setPerformance] = useState(null);
+  const [budgetCategories, setBudgetCategories] = useState([]);
 
   const [plannerData, setPlannerData] = useState({
     actualIncome: defaultIncomeCategories,
@@ -83,28 +39,106 @@ export function FinanceProvider({ children }) {
     budgetSavings: budgetSavingsCategories,
   });
 
+  const [analysisSnapshot, setAnalysisSnapshot] = useState({
+    total_spent: 0,
+    mom_change_percentage: 0,
+    biggest_category: { name: "None", amount: 0, icon: "💰" },
+    most_improved_category: { name: "None", amount_improved: 0, icon: "📈" }
+  });
+  const [analysisBreakdown, setAnalysisBreakdown] = useState([]);
+  const [analysisTrends, setAnalysisTrends] = useState([]);
+  const [analysisInsights, setAnalysisInsights] = useState([]);
+
   // 2. The magic connection to FastAPI
   useEffect(() => {
+    // 1. Fetch Transactions
     fetch('http://localhost:3000/api/v1/transactions/')
       .then((res) => res.json())
       .then((json) => {
-        // Safe mapping: Only map if json.data exists and is an array
         const fetchedData = json.data || [];
-        
         const formattedData = fetchedData.map(tx => ({
-          ...tx,
-          amount: parseFloat(tx.amount),
-          details: tx.description 
+          ...tx, amount: parseFloat(tx.amount), details: tx.description 
         }));
-        
         setTransactions(formattedData);
         setLoading(false);
       })
-      .catch((err) => {
-        console.error("Error fetching transactions:", err);
-        setLoading(false);
-      });
-  }, []);
+      .catch((err) => { console.error("Error fetching transactions:", err); setLoading(false); });
+
+    // 2. Fetch Live Budget Grid
+    fetch(`http://localhost:3000/api/v1/budget/values?year=${selectedYear}`)
+      .then(r => r.json())
+      .then(json => {
+        if (json.data) {
+          // Helper to format data for the UI
+          const mapData = (data, key) => data.map(cat => ({ ...cat, values: cat[key] }));
+
+          setPlannerData(prev => ({
+            ...prev,
+            ...(json.data.income.length > 0 && {
+              budgetIncome:   mapData(json.data.income,   'planned_values'),
+              actualIncome:   mapData(json.data.income,   'actual_values'),
+            }),
+            ...(json.data.expenses.length > 0 && {
+              budgetExpenses:  mapData(json.data.expenses, 'planned_values'),
+              actualExpenses:  mapData(json.data.expenses, 'actual_values'),
+            }),
+            ...(json.data.savings.length > 0 && {
+              budgetSavings:   mapData(json.data.savings,  'planned_values'),
+              actualSavings:   mapData(json.data.savings,  'actual_values'),
+            }),
+          }));
+        }
+      })
+      .catch(err => console.error('Failed to fetch budget:', err));
+    
+    //3. Fetch Performance
+    fetch(`http://localhost:3000/api/v1/budget/performance?year=${selectedYear}`)
+      .then(r => r.json())
+      .then(json => {
+        if (json.data) setPerformance(json.data);
+      })
+      .catch(err => console.error('Failed to fetch performance:', err));
+    
+    
+      fetch('http://localhost:3000/api/v1/transactions/summary')
+      .then(r => r.json())
+      .then(json => { if (json.data) setSummary(json.data); })
+        .catch(err => console.error('Failed to fetch summary:', err));
+    
+    
+    
+    
+    // Fetch Monthly Snapshot 
+    fetch(`http://localhost:3000/api/v1/analysis/monthly-snapshot?year=${selectedYear}&month=${selectedMonth}`)
+      .then(r => r.json())
+      .then(json => { if (json.data) setAnalysisSnapshot(json.data); }) // Follows consistent response envelope [cite: 36]
+      .catch(err => console.error('Failed to fetch analysis snapshot:', err));
+
+    // Fetch Category Breakdown 
+    fetch(`http://localhost:3000/api/v1/analysis/category-breakdown?year=${selectedYear}&month=${selectedMonth}`)
+      .then(r => r.json())
+      .then(json => { if (json.data) setAnalysisBreakdown(json.data.categories); })
+      .catch(err => console.error('Failed to fetch category breakdown:', err));
+
+    // Fetch Trends 
+    fetch(`http://localhost:3000/api/v1/analysis/trends?year=${selectedYear}&month=${selectedMonth}`)
+      .then(r => r.json())
+      .then(json => { if (json.data) setAnalysisTrends(json.data.trends); })
+      .catch(err => console.error('Failed to fetch trend sets:', err));
+
+    // Fetch Spending Insights 
+    fetch(`http://localhost:3000/api/v1/analysis/spending-insights?year=${selectedYear}&month=${selectedMonth}`)
+      .then(r => r.json())
+      .then(json => { if (json.data) setAnalysisInsights(json.data.insights); })
+      .catch(err => console.error('Failed to fetch spending insights:', err));
+    
+    fetch('http://localhost:3000/api/v1/budget/categories')
+      .then(r => r.json())
+      .then(json => { if (json.data) setBudgetCategories(json.data); })
+      .catch(err => console.error('Failed to fetch budget categories:', err));
+    
+    
+  }, [refreshTrigger, selectedYear, selectedMonth]); // Reloads when refreshTrigger changes!
 
   const updatePlannerData = (key, updater) => {
     setPlannerData(prev => ({
@@ -138,13 +172,15 @@ export function FinanceProvider({ children }) {
           const newDbTx = { ...json.data, amount: parseFloat(json.data.amount), details: json.data.description };
           // Instantly update the UI by putting the new item at the top of the list
           setTransactions(prev => [newDbTx, ...prev]);
+
+          setRefreshTrigger(prev => prev + 1);
         }
       } catch (err) {
         console.error("Failed to add transaction to database:", err);
       }
   };
 
-  // --- 3. DELETE TRANSACTION ---
+  // --- 2. DELETE TRANSACTION ---
   const deleteTransaction = async (id) => {
     // Optimistic UI update: remove it from the screen immediately to make the app feel fast
     setTransactions(prev => prev.filter((t) => t.id !== id));
@@ -161,7 +197,7 @@ export function FinanceProvider({ children }) {
     }
   };
 
-  // --- 2. EDIT TRANSACTION ---
+  // --- 3. EDIT TRANSACTION ---
   const editTransaction = async (id, details, amount, newDate) => {
       // Add the date to the payload
       const payload = {
@@ -188,6 +224,73 @@ export function FinanceProvider({ children }) {
         console.error("Failed to update transaction:", err);
       }
   };
+
+  // --- 4. ADD BUDGET CATEGORY ---
+  const addBudgetCategory = async (name, type) => {
+    const payload = { name, type, icon: "💰", is_fixed: false, sort_order: 0 };
+    try {
+      const res = await fetch('http://localhost:3000/api/v1/budget/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) setRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error("Failed to add category:", err);
+    }
+  };
+
+  // --- 5. UPDATE BUDGET VALUE ---
+  const updateBudgetValue = async (categoryId, year, month, amount) => {
+    const payload = {
+      values: [{ category_id: categoryId, year, month, planned_amount: amount }]
+    };
+    try {
+      const res = await fetch('http://localhost:3000/api/v1/budget/values', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) setRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error("Failed to update budget value:", err);
+    }
+  };
+
+  // --- 6. EDIT BUDGET CATEGORY ---
+  const updateBudgetCategory = async (id, payload) => {
+    try {
+      const res = await fetch(`http://localhost:3000/api/v1/budget/categories/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) setRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error("Failed to update category:", err);
+    }
+  };
+
+
+  // --- 7. DELETE BUDGET CATEGORY  ---
+  const deleteBudgetCategory = async (id) => {
+  try {
+    const res = await fetch(`http://localhost:3000/api/v1/budget/categories/${id}`, {
+      method: 'DELETE'
+    });
+    if (res.ok) {
+      setRefreshTrigger(prev => prev + 1);
+      return true;
+    }
+    // 400 = has values, 404 = gone — either way, restore UI truth
+    setRefreshTrigger(prev => prev + 1);
+    return false;
+  } catch (err) {
+    console.error("Failed to delete category:", err);
+    setRefreshTrigger(prev => prev + 1);
+    return false;
+  }
+};
   
   const addHolding = (holding) => {
     setHoldings((prev) => {
@@ -197,11 +300,26 @@ export function FinanceProvider({ children }) {
     });
   };
 
+  const bulkUpdateBudgetValues = async (rows) => {
+     try {
+        const res = await fetch('http://localhost:3000/api/v1/budget/values', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: rows })
+        });
+        if (res.ok) setRefreshTrigger(prev => prev + 1);
+      } catch (err) {
+        console.error("Failed to bulk update budget values:", err);
+      }
+  };
+
   return (
     <FinanceContext.Provider 
       value={{ 
-        transactions, holdings, addTransaction, deleteTransaction, editTransaction, addHolding,
-        plannerData, updatePlannerData, loading 
+        transactions, holdings, summary, addTransaction, deleteTransaction, editTransaction, addHolding,
+        plannerData, updatePlannerData, loading,
+        addBudgetCategory, updateBudgetValue, deleteBudgetCategory, updateBudgetCategory, performance, selectedMonth, setSelectedMonth, selectedYear, setSelectedYear,
+        analysisSnapshot, analysisBreakdown, analysisTrends, analysisInsights, bulkUpdateBudgetValues, budgetCategories
       }}
     >
       {children}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Search, Filter, Download, Upload, Pencil, Trash2, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useFinance } from "../context/FinanceContext";
 import Header from "../components/Header";
@@ -8,29 +8,25 @@ import CSVImportModal from "../components/transactions/CSVImportModal";
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 const PAGE_SIZE = 15;
 
-const CATEGORY_COLORS = {
-  Income:        "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
-  Shopping:      "bg-purple-500/20  text-purple-400  border border-purple-500/30",
-  Food:          "bg-orange-500/20  text-orange-400  border border-orange-500/30",
-  Investment:    "bg-blue-500/20    text-blue-400    border border-blue-500/30",
-  Utilities:     "bg-yellow-500/20  text-yellow-400  border border-yellow-500/30",
-  Entertainment: "bg-pink-500/20    text-pink-400    border border-pink-500/30",
-  Transport:     "bg-cyan-500/20    text-cyan-400    border border-cyan-500/30",
-  Health:        "bg-red-500/20     text-red-400     border border-red-500/30",
+const COLOR_SLOTS = [
+  "bg-emerald-500/20 text-emerald-400 ...",
+  "bg-purple-500/20  text-purple-400 ...",
+  "bg-orange-500/20  text-orange-400 ...",
+  "bg-blue-500/20    text-blue-400 ...",
+  "bg-pink-500/20    text-pink-400 ...",
+  "bg-cyan-500/20    text-cyan-400 ...",
+];
+const getCategoryColor = (name) => {
+  const i = [...name].reduce(
+    (h, c) => h + c.charCodeAt(0), 0
+  ) % COLOR_SLOTS.length;
+  return COLOR_SLOTS[i];
 };
 
-const SPENDING_INSIGHTS = [
-  { emoji: "🍔", text: "Food up 42% vs last month",          status: "warning"  },
-  { emoji: "🎬", text: "Entertainment within budget",         status: "positive" },
-  { emoji: "🛒", text: "Shopping highest month in 3 months", status: "negative" },
-  { emoji: "⚡", text: "Utilities down 12%",                 status: "positive" },
-  { emoji: "🚗", text: "Transport near budget limit",         status: "warning"  },
-];
-
 const INSIGHT_STYLES = {
-  positive: "text-emerald-400 border-emerald-500/20",
-  warning:  "text-amber-400  border-amber-500/20",
-  negative: "text-rose-400   border-rose-500/20",
+  over_budget:  "text-rose-400   border-rose-500/20",
+  under_budget: "text-emerald-400 border-emerald-500/20",
+  anomaly:      "text-amber-400  border-amber-500/20",
 };
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -155,7 +151,11 @@ function DeleteModal({ onConfirm, onClose }) {
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 export default function Transactions({ toggleSidebar }) {
   // Pull transactions and mutators from global context
-  const { transactions, addTransaction, editTransaction, deleteTransaction, loading } = useFinance();  
+  const { transactions, addTransaction, editTransaction, deleteTransaction, loading, analysisInsights, budgetCategories } = useFinance();  
+
+  const categories = useMemo(() =>
+    [...new Set(transactions.map(t => t.category))].sort()
+    , [transactions]);
   
   const [page,         setPage]         = useState(0);
   const [search,       setSearch]       = useState("");
@@ -204,16 +204,13 @@ export default function Transactions({ toggleSidebar }) {
   const inputCls = "h-10 px-3 rounded-md border border-gray-700 bg-[#11141B] text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors appearance-none";
 
   return (
-    <div className="flex flex-col w-full min-h-screen bg-[#0B0E14] text-white">
+    <div className="flex flex-col w-full min-h-screen overflow-x-hidden bg-[#0B0E14] text-white">
 
       {/* ── Page Header ── */}
-      <div className="sticky top-0 z-20 bg-[#0B0E14]">
-        <Header title="Transactions" toggleSidebar={toggleSidebar}>
-          {/* This injects the fully functional modal into the right side of the Header */}
-          <AddTransactionModal />
-        </Header>
-      
-      </div>
+     <div className="sticky top-0 z-20 bg-[#0B0E14] flex items-center justify-between pr-8 border-b border-gray-800/50">
+      <Header title="Transactions" toggleSidebar={toggleSidebar} />
+      <AddTransactionModal />     {/* ← sibling of Header, always visible */}
+    </div>
 
       <div className="p-8 space-y-6">
 
@@ -231,18 +228,46 @@ export default function Transactions({ toggleSidebar }) {
           ))}
         </div>
 
+        
         {/* ── ROW 2: Spending Insights Banner ── */}
-        <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-          {SPENDING_INSIGHTS.map((ins, i) => (
-            <div
-              key={i}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full bg-[#11141B] border whitespace-nowrap text-sm shrink-0 ${INSIGHT_STYLES[ins.status]}`}
-            >
-              <span>{ins.emoji}</span>
-              <span className="font-medium text-white">{ins.text}</span>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 w-full">
+          <div className="flex flex-nowrap gap-3 overflow-x-auto pb-3 w-full">
+            {analysisInsights.map((ins, i) => {
+              // 1. Check if this insight belongs to a savings category
+              const isSavings = budgetCategories.find((c) => c.name === ins.category)?.type === "savings";
+
+              // 2. Set default styles based on the type
+              let icon = "✅";
+              let styleCls = "text-gray-400 border-gray-700";
+
+              if (ins.type === "anomaly") {
+                icon = "⚠️";
+                styleCls = INSIGHT_STYLES.anomaly;
+              } else if (ins.type === "over_budget") {
+                // If savings: Over budget is GOOD (Green). If expense: BAD (Red).
+                icon = isSavings ? "✅" : "🔴";
+                styleCls = isSavings ? INSIGHT_STYLES.under_budget : INSIGHT_STYLES.over_budget;
+              } else if (ins.type === "under_budget") {
+                // If savings: Under budget is BAD (Red). If expense: GOOD (Green).
+                icon = isSavings ? "🔴" : "✅";
+                styleCls = isSavings ? INSIGHT_STYLES.over_budget : INSIGHT_STYLES.under_budget;
+              } else {
+                styleCls = INSIGHT_STYLES[ins.type] ?? styleCls;
+              }
+
+              return (
+                <div
+                  key={i}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full bg-[#11141B] border whitespace-nowrap text-sm shrink-0 ${styleCls}`}
+                >
+                  <span>{icon}</span>
+                  <span className="font-medium text-white">{ins.text}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
+      
 
         {/* ── ROW 3: Toolbar ── */}
         <div className="bg-[#11141B] border border-gray-800 rounded-xl p-4">
@@ -266,14 +291,11 @@ export default function Transactions({ toggleSidebar }) {
               className={`${inputCls} w-full md:w-[180px]`}
             >
               <option value="all">All Categories</option>
-              <option value="income">Income</option>
-              <option value="shopping">Shopping</option>
-              <option value="food">Food</option>
-              <option value="investment">Investment</option>
-              <option value="utilities">Utilities</option>
-              <option value="entertainment">Entertainment</option>
-              <option value="transport">Transport</option>
-              <option value="health">Health</option>
+              {categories.map(cat => (
+                <option key={cat} value={cat.toLowerCase()}>
+                  {cat}
+                </option>
+              ))}
             </select>
 
             {/* Type filter */}
@@ -348,7 +370,7 @@ export default function Transactions({ toggleSidebar }) {
                           {fmtDate(txn.date)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${CATEGORY_COLORS[txn.category] || "bg-gray-800 text-gray-300 border border-gray-700"}`}>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColor(txn.category) || "bg-gray-800 text-gray-300 border border-gray-700"}`}>
                             {txn.category}
                           </span>
                         </td>
