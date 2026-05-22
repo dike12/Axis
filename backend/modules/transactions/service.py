@@ -233,3 +233,47 @@ async def get_category_actuals_for_year(
             actuals[cat_name][month] += total
 
     return actuals
+
+
+async def apply_mass_rollover_recalculation(db: AsyncSession, user_id: uuid.UUID, shift_enabled: bool, cutoff_day: int):
+    """
+    Triggered by the Settings module when budget logic changes.
+    Applies the Axis Finance Rollover Rule to historical transactions.
+    """
+    from sqlalchemy import update
+    
+    # SCENARIO A: The user turned the feature completely OFF
+    if not shift_enabled:
+        await db.execute(
+            update(Transaction)
+            .where(Transaction.user_id == user_id)
+            .values(effective_date=Transaction.date, is_shifted=False)
+        )
+        return # We are done, no need to do complex date math.
+
+    # SCENARIO B: The feature is ON, and the cutoff day was updated.
+    # We must recalculate all credit transactions that haven't been manually overridden.
+    query = select(Transaction).where(
+        Transaction.user_id == user_id,
+        Transaction.type == "credit",
+        Transaction.shift_override == False,
+        Transaction.deleted_at.is_(None)
+    )
+    result = await db.execute(query)
+    transactions = result.scalars().all()
+    
+    for tx in transactions:
+        if tx.date.day >= cutoff_day:
+            tx.is_shifted = True
+            # Roll over to the 1st of the next month
+            if tx.date.month == 12:
+                tx.effective_date = dt_date(tx.date.year + 1, 1, 1)
+            else:
+                tx.effective_date = dt_date(tx.date.year, tx.date.month + 1, 1)
+        else:
+            # Revert to normal if it falls before the new cutoff
+            tx.is_shifted = False
+            tx.effective_date = tx.date
+            
+    # Note: We do not call db.commit() here! 
+    # We let the settings service commit the entire transaction (settings + transactions) together.
