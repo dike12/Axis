@@ -5,3 +5,7 @@ pydantic-settings
 uvicorn[standard]
 alembic
 cachetools==5.3.3
+passlib
+bcrypt 
+pyjwt 
+email-validator

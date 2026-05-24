@@ -29,6 +29,7 @@ export function FinanceProvider({ children }) {
   const [loading, setLoading] = useState(true); // Added a loading state
   const [performance, setPerformance] = useState(null);
   const [budgetCategories, setBudgetCategories] = useState([]);
+  const [settings, setSettings] = useState(null);
 
   const [plannerData, setPlannerData] = useState({
     actualIncome: defaultIncomeCategories,
@@ -100,9 +101,9 @@ export function FinanceProvider({ children }) {
       .catch(err => console.error('Failed to fetch performance:', err));
     
     
-      fetch('http://localhost:3000/api/v1/transactions/summary')
-      .then(r => r.json())
-      .then(json => { if (json.data) setSummary(json.data); })
+      fetch(`http://localhost:3000/api/v1/transactions/summary?year=${selectedYear}&month=${selectedMonth}`)
+        .then(r => r.json())
+        .then(json => { if (json.data) setSummary(json.data); })
         .catch(err => console.error('Failed to fetch summary:', err));
     
     
@@ -136,6 +137,13 @@ export function FinanceProvider({ children }) {
       .then(r => r.json())
       .then(json => { if (json.data) setBudgetCategories(json.data); })
       .catch(err => console.error('Failed to fetch budget categories:', err));
+    
+    
+    // Fetch User Settings
+    fetch('http://localhost:3000/api/v1/settings')
+      .then(r => r.json())
+      .then(json => { if (json.data) setSettings(json.data); })
+      .catch(err => console.error('Failed to fetch settings:', err));
     
     
   }, [refreshTrigger, selectedYear, selectedMonth]); // Reloads when refreshTrigger changes!
@@ -313,13 +321,42 @@ export function FinanceProvider({ children }) {
       }
   };
 
+  // --- 8. UPDATE USER SETTINGS ---
+  const updateUserSettings = async (payload) => {
+    // Optimistically update local state so the UI feels instant
+    setSettings(prev => ({ ...prev, ...payload }));
+
+    try {
+      const res = await fetch('http://localhost:3000/api/v1/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      
+      if (json.data) {
+        setSettings(json.data); // Sync with actual DB truth
+        
+        // CRITICAL: If budget logic changed, transactions and budget actuals 
+        // just shifted on the backend. We MUST refresh the entire app's data.
+        if ("shift_late_income" in payload || "income_cutoff_day" in payload) {
+          setRefreshTrigger(prev => prev + 1);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to update settings:", err);
+      // If it fails, trigger a refresh to revert the optimistic UI update
+      setRefreshTrigger(prev => prev + 1); 
+    }
+  };
+
   return (
     <FinanceContext.Provider 
       value={{ 
         transactions, holdings, summary, addTransaction, deleteTransaction, editTransaction, addHolding,
         plannerData, updatePlannerData, loading,
         addBudgetCategory, updateBudgetValue, deleteBudgetCategory, updateBudgetCategory, performance, selectedMonth, setSelectedMonth, selectedYear, setSelectedYear,
-        analysisSnapshot, analysisBreakdown, analysisTrends, analysisInsights, bulkUpdateBudgetValues, budgetCategories
+        analysisSnapshot, analysisBreakdown, analysisTrends, analysisInsights, bulkUpdateBudgetValues, budgetCategories, settings, updateUserSettings
       }}
     >
       {children}

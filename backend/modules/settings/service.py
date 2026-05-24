@@ -35,7 +35,7 @@ async def update_user_settings(db: AsyncSession, user_id: uuid.UUID, update_data
         setattr(settings, key, value)
         
     # --- CROSS-MODULE TRIGGER ---
-    # If the user touched the income rollover logic, we must recalculate transactions
+    # If the user touched the income rollover logic, we must recalculate transactions [cite: 65, 66]
     shift_changed = old_shift_enabled != settings.shift_late_income
     cutoff_changed = old_cutoff_day != settings.income_cutoff_day
     
@@ -48,7 +48,7 @@ async def update_user_settings(db: AsyncSession, user_id: uuid.UUID, update_data
             cutoff_day=settings.income_cutoff_day
         )
         
-    # Save the settings
+    # Save the settings (this will also commit the transaction changes if they happened)
     await db.commit()
     await db.refresh(settings)
     return settings

@@ -76,6 +76,18 @@ export default function TransactionTable({ limit, showFilters = false, title = "
                   {tx.type === "credit" ? "+" : "-"}
                   ${Math.abs(tx.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                 </td>
+
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-gray-300">{fmtDate(tx.date)}</span>
+                    {/* Render the Shifted badge if the backend flagged it! */}
+                    {tx.is_shifted && (
+                      <span className="inline-flex w-fit items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/20 text-blue-400 border border-blue-500/20">
+                        Shifted ➔
+                      </span>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
