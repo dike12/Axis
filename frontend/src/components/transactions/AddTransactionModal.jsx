@@ -3,8 +3,6 @@ import { Plus, X } from "lucide-react";
 import { useFinance } from "../../context/FinanceContext";
 import { cn } from "../../lib/utils";
 
-const CUTOFF_DAY = 20;
-const SHIFT_LATE_INCOME = true;
 
 const typeColors = {
   income: "border-emerald-500/50 focus-within:border-emerald-500",
@@ -19,8 +17,11 @@ const typeTextColors = {
 };
 
 export default function AddTransactionModal({ trigger, onAdd }) {
-  const { addTransaction, budgetCategories } = useFinance();
+  const { addTransaction, budgetCategories, settings } = useFinance();
   const [open, setOpen] = useState(false);
+
+  const CUTOFF_DAY = settings?.income_cutoff_day ?? 28;
+  const SHIFT_LATE_INCOME = settings?.shift_late_income ?? true;
 
   const categoryOptions = useMemo(() => ({
   income:     budgetCategories.filter(c => c.type === "income").map(c => c.name),

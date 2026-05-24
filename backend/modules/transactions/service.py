@@ -66,92 +66,70 @@ async def get_transaction(db: AsyncSession, tx_id: uuid.UUID, user_id: uuid.UUID
     result = await db.execute(query)
     return result.scalar_one_or_none()
 
-async def get_transaction_summary(db: AsyncSession, user_id: uuid.UUID):
-    # FRS requires total income, total expenses, and net flow[cite: 4]
-    query = select(
-        Transaction.type,
-        func.sum(Transaction.amount).label("total")
-    ).where(
-        Transaction.user_id == user_id,
-        Transaction.deleted_at.is_(None)
+async def get_transaction_summary(db: AsyncSession, user_id: uuid.UUID, year: int, month: int):
+    from sqlalchemy import extract, and_
+    # Filter by effective_date so the rollover rule actually changes your dashboard math!
+    query = select(Transaction.type, func.sum(Transaction.amount).label("total")).where(
+        and_(
+            Transaction.user_id == user_id,
+            Transaction.deleted_at.is_(None),
+            extract('year', Transaction.effective_date) == year,
+            extract('month', Transaction.effective_date) == month
+        )
     ).group_by(Transaction.type)
     
     result = await db.execute(query)
     totals = {row.type: float(row.total) for row in result.all()}
-    
     income = totals.get("credit", 0.0)
     expenses = abs(totals.get("debit", 0.0))
-    
-    return {
-        "total_income": income,
-        "total_expenses": expenses,
-        "net_flow": income - expenses
-    }
+    return {"total_income": income, "total_expenses": expenses, "net_flow": income - expenses}
 
 
 async def create_transaction(db: AsyncSession, tx_data: TransactionCreate, user_id: uuid.UUID):
-    # 1. Start with the default assumption (No shift)
+    # Fetch live settings to override the defaults
+    from modules.settings import service as settings_service
+    settings = await settings_service.get_user_settings(db, user_id)
+    
     is_shifted = False
     effective_date = tx_data.date
 
-    # 2. THE AXIS FINANCE ROLLOVER RULE
-    # If it's income, and it's on or after the 20th, and the user didn't override it:
-    if tx_data.type == "credit" and tx_data.date.day >= 20 and not tx_data.shift_override:
+    # Use dynamic settings instead of hardcoded 20!
+    if settings.shift_late_income and tx_data.type == "credit" and tx_data.date.day >= settings.income_cutoff_day and not tx_data.shift_override:
         is_shifted = True
-        
-        # Calculate the 1st of the next month safely
         if tx_data.date.month == 12:
-            next_month = 1
-            next_year = tx_data.date.year + 1
+            effective_date = dt_date(tx_data.date.year + 1, 1, 1)
         else:
-            next_month = tx_data.date.month + 1
-            next_year = tx_data.date.year
-            
-        effective_date = dt_date(next_year, next_month, 1)
+            effective_date = dt_date(tx_data.date.year, tx_data.date.month + 1, 1)
 
-    # 3. Translate Pydantic (tx_data) into SQLAlchemy (new_tx)
     new_tx = Transaction(
-        user_id=user_id,
-        date=tx_data.date,
-        effective_date=effective_date,
-        amount=tx_data.amount,
-        category=tx_data.category,
-        description=tx_data.description,
-        type=tx_data.type,
-        is_shifted=is_shifted,
-        shift_override=tx_data.shift_override
+        user_id=user_id, date=tx_data.date, effective_date=effective_date,
+        amount=tx_data.amount, category=tx_data.category, description=tx_data.description,
+        type=tx_data.type, is_shifted=is_shifted, shift_override=tx_data.shift_override
     )
-
-    # 4. Save to the Database
-    db.add(new_tx)        # "Hey DB, queue this up"
-    await db.commit()     # "Actually save it now"
-    await db.refresh(new_tx)  # "Give me the fresh data back (like the auto-generated ID)"
-
+    db.add(new_tx)
+    await db.commit()
+    await db.refresh(new_tx)
     return new_tx
 
 
 async def update_transaction(db: AsyncSession, tx_id: uuid.UUID, user_id: uuid.UUID, update_data: TransactionUpdate):
-    # 1. Find the transaction
+    from modules.settings import service as settings_service
+    settings = await settings_service.get_user_settings(db, user_id)
+    
     query = select(Transaction).where(
-        Transaction.id == tx_id, 
-        Transaction.user_id == user_id,
-        Transaction.deleted_at.is_(None)
+        Transaction.id == tx_id, Transaction.user_id == user_id, Transaction.deleted_at.is_(None)
     )
     result = await db.execute(query)
     tx = result.scalar_one_or_none()
-    
-    if not tx:
-        return None # Not found
+    if not tx: return None
         
-    # 2. Apply only the fields the user actually sent
     update_dict = update_data.model_dump(exclude_unset=True)
     for key, value in update_dict.items():
         setattr(tx, key, value)
         
-    # --- 3. THE ROLLOVER RECALCULATION ---
-    # If the user updated the date, we must recalculate the Axis Finance Rollover logic!
+    # Recalculate with dynamic settings!
     if "date" in update_dict or "type" in update_dict or "shift_override" in update_dict:
-        if tx.type == "credit" and tx.date.day >= 20 and not tx.shift_override:
+        if settings.shift_late_income and tx.type == "credit" and tx.date.day >= settings.income_cutoff_day and not tx.shift_override:
             tx.is_shifted = True
             if tx.date.month == 12:
                 tx.effective_date = dt_date(tx.date.year + 1, 1, 1)
@@ -161,7 +139,6 @@ async def update_transaction(db: AsyncSession, tx_id: uuid.UUID, user_id: uuid.U
             tx.is_shifted = False
             tx.effective_date = tx.date
             
-    # 4. Save and return
     await db.commit()
     await db.refresh(tx)
     return tx
@@ -242,7 +219,7 @@ async def apply_mass_rollover_recalculation(db: AsyncSession, user_id: uuid.UUID
     """
     from sqlalchemy import update
     
-    # SCENARIO A: The user turned the feature completely OFF
+    # SCENARIO A: The user turned the feature completely OFF [cite: 66]
     if not shift_enabled:
         await db.execute(
             update(Transaction)

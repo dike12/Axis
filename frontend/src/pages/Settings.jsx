@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { User, Bell, Shield, Palette, CreditCard, Download, Calculator } from "lucide-react";
 import Header from "../components/Header";
 import { cn } from "../lib/utils";
+import { useFinance } from "../context/FinanceContext";
+
 
 // --- CUSTOM TOGGLE SWITCH ---
 function Toggle({ checked, onChange }) {
@@ -28,17 +30,26 @@ function Toggle({ checked, onChange }) {
 
 // --- MAIN COMPONENT ---
 export default function Settings({ toggleSidebar }) {
-  // State for toggles
+  const { settings, updateUserSettings } = useFinance();
+
   const [emailNotifs, setEmailNotifs] = useState(true);
   const [budgetAlerts, setBudgetAlerts] = useState(true);
   const [investUpdates, setInvestUpdates] = useState(false);
   const [txnAlerts, setTxnAlerts] = useState(true);
-  const [shiftIncome, setShiftIncome] = useState(true);
-
+  
   // Common input styling
   const inputCls = "flex h-10 w-full rounded-md border border-gray-700 bg-[#0B0E14] px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 transition-colors";
   const selectCls = "flex h-10 w-full rounded-md border border-gray-700 bg-[#0B0E14] px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors appearance-none";
   const btnOutlineCls = "h-9 px-4 rounded-md border border-gray-700 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors";
+
+  if (!settings) {
+    return (
+      <div className="flex flex-col w-full min-h-screen bg-[#0B0E14]">
+        <Header title="Settings" toggleSidebar={toggleSidebar} />
+        <div className="flex-1 flex items-center justify-center text-gray-500">Loading settings...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col w-full min-h-screen bg-[#0B0E14] font-sans">
@@ -144,15 +155,29 @@ export default function Settings({ toggleSidebar }) {
                   <p className="font-medium text-gray-200 text-sm">Shift Late Income</p>
                   <p className="text-xs text-gray-500 mt-0.5">Automatically count late-month income towards the next budget period</p>
                 </div>
-                <Toggle checked={shiftIncome} onChange={setShiftIncome} />
+                <Toggle 
+                  checked={settings.shift_late_income} 
+                  onChange={(val) => updateUserSettings({ shift_late_income: val })} 
+                />
               </div>
               <div className="space-y-3">
                 <label className="text-sm font-medium text-gray-200">Cutoff Day</label>
                 <div className="flex items-center gap-3">
-                  <input type="number" min={1} max={28} defaultValue={20} className={cn(inputCls, "w-20 text-center")} />
+                  <input 
+                    type="number" 
+                    min={1} max={28} 
+                    defaultValue={settings.income_cutoff_day} 
+                    onBlur={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (val !== settings.income_cutoff_day && val >= 1 && val <= 28) {
+                        updateUserSettings({ income_cutoff_day: val });
+                      }
+                    }}
+                    className={cn(inputCls, "w-20 text-center")} 
+                  />
                   <span className="text-sm text-gray-500">of each month</span>
                 </div>
-                <p className="text-xs text-gray-500">Income received on or after this day will automatically count towards the next month's budget.</p>
+                <p className="text-xs text-gray-500">Income received on or after this day will automatically count towards the next month's budget. (Saves automatically on blur)</p>
               </div>
             </div>
           </div>
@@ -208,7 +233,11 @@ export default function Settings({ toggleSidebar }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-gray-400">Currency</label>
-                  <select defaultValue="usd" className={selectCls}>
+                  <select 
+                    value={settings.currency.toLowerCase()} 
+                    onChange={(e) => updateUserSettings({ currency: e.target.value.toUpperCase() })}
+                    className={selectCls}
+                  >
                     <option value="usd">USD ($)</option>
                     <option value="eur">EUR (€)</option>
                     <option value="cad">CAD ($)</option>
@@ -217,20 +246,28 @@ export default function Settings({ toggleSidebar }) {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-gray-400">Date Format</label>
-                  <select defaultValue="mdy" className={selectCls}>
-                    <option value="mdy">MM/DD/YYYY</option>
-                    <option value="dmy">DD/MM/YYYY</option>
-                    <option value="ymd">YYYY-MM-DD</option>
+                  <select 
+                    value={settings.date_format}
+                    onChange={(e) => updateUserSettings({ date_format: e.target.value })}
+                    className={selectCls}
+                  >
+                    <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                    <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
                   </select>
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-400">Fiscal Year Start</label>
-                <select defaultValue="jan" className={selectCls}>
-                  <option value="jan">January</option>
-                  <option value="apr">April</option>
-                  <option value="jul">July</option>
-                  <option value="oct">October</option>
+                <select 
+                  value={settings.fiscal_year_start}
+                  onChange={(e) => updateUserSettings({ fiscal_year_start: parseInt(e.target.value) })}
+                  className={selectCls}
+                >
+                  <option value={1}>January</option>
+                  <option value={4}>April</option>
+                  <option value={7}>July</option>
+                  <option value={10}>October</option>
                 </select>
               </div>
             </div>

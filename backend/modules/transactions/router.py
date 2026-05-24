@@ -81,10 +81,10 @@ async def list_transactions(
     }
 
 @router.get("/summary")
-async def transaction_summary(db: AsyncSession = Depends(get_db)):
+async def get_summary(year: int, month: int, db: AsyncSession = Depends(get_db)):
     fake_user_id = uuid.UUID("11111111-1111-1111-1111-111111111111")
-    summary_data = await get_transaction_summary(db, fake_user_id)
-    return {"data": summary_data, "error": None}
+    summary = await get_transaction_summary(db, fake_user_id, year, month)
+    return {"data": summary, "error": None}
 
 @router.get("/{tx_id}")
 async def fetch_transaction(tx_id: uuid.UUID, db: AsyncSession = Depends(get_db)):

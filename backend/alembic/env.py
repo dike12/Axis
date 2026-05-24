@@ -12,6 +12,7 @@ from core.database import Base
 from modules.auth.models import User
 from modules.transactions.models import Transaction
 from modules.budget.models import BudgetCategory, BudgetValue
+from modules.settings.models import UserSettings
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
