@@ -125,6 +125,10 @@ export default function Auth({ setSession }) {
     }
   };
 
+  const handleGoogle = () => {
+    toast.success("Google OAuth integration coming soon!");
+  };
+
   const isLogin = mode === "login";
 
   return (
