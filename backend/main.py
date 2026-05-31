@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 from modules.auth.models import User
+from modules.auth.router import router as auth_router
 from modules.transactions.router import router as transactions_router
 from modules.budget.router import router as budget_router
 from modules.analysis.router import router as analysis_router
@@ -23,6 +24,7 @@ app.add_middleware(
 )
 
 app.include_router(transactions_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
 app.include_router(budget_router, prefix="/api/v1")
 app.include_router(analysis_router, prefix="/api/v1/analysis")
 app.include_router(settings_router, prefix="/api/v1")

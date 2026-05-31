@@ -53,7 +53,7 @@ export function FinanceProvider({ children }) {
   // 2. The magic connection to FastAPI
   useEffect(() => {
     // 1. Fetch Transactions
-    fetch('http://localhost:3000/api/v1/transactions/')
+    fetch('http://localhost:3000/api/v1/transactions/', { credentials: "include" })
       .then((res) => res.json())
       .then((json) => {
         const fetchedData = json.data || [];
@@ -66,7 +66,7 @@ export function FinanceProvider({ children }) {
       .catch((err) => { console.error("Error fetching transactions:", err); setLoading(false); });
 
     // 2. Fetch Live Budget Grid
-    fetch(`http://localhost:3000/api/v1/budget/values?year=${selectedYear}`)
+    fetch(`http://localhost:3000/api/v1/budget/values?year=${selectedYear}`, { credentials: "include" })
       .then(r => r.json())
       .then(json => {
         if (json.data) {
@@ -93,7 +93,7 @@ export function FinanceProvider({ children }) {
       .catch(err => console.error('Failed to fetch budget:', err));
     
     //3. Fetch Performance
-    fetch(`http://localhost:3000/api/v1/budget/performance?year=${selectedYear}`)
+    fetch(`http://localhost:3000/api/v1/budget/performance?year=${selectedYear}`, { credentials: "include" })
       .then(r => r.json())
       .then(json => {
         if (json.data) setPerformance(json.data);
@@ -101,7 +101,7 @@ export function FinanceProvider({ children }) {
       .catch(err => console.error('Failed to fetch performance:', err));
     
     
-      fetch(`http://localhost:3000/api/v1/transactions/summary?year=${selectedYear}&month=${selectedMonth}`)
+      fetch(`http://localhost:3000/api/v1/transactions/summary?year=${selectedYear}&month=${selectedMonth}`, { credentials: "include" })
         .then(r => r.json())
         .then(json => { if (json.data) setSummary(json.data); })
         .catch(err => console.error('Failed to fetch summary:', err));
@@ -110,37 +110,37 @@ export function FinanceProvider({ children }) {
     
     
     // Fetch Monthly Snapshot 
-    fetch(`http://localhost:3000/api/v1/analysis/monthly-snapshot?year=${selectedYear}&month=${selectedMonth}`)
+    fetch(`http://localhost:3000/api/v1/analysis/monthly-snapshot?year=${selectedYear}&month=${selectedMonth}`, { credentials: "include" })
       .then(r => r.json())
       .then(json => { if (json.data) setAnalysisSnapshot(json.data); }) // Follows consistent response envelope [cite: 36]
       .catch(err => console.error('Failed to fetch analysis snapshot:', err));
 
     // Fetch Category Breakdown 
-    fetch(`http://localhost:3000/api/v1/analysis/category-breakdown?year=${selectedYear}&month=${selectedMonth}`)
+    fetch(`http://localhost:3000/api/v1/analysis/category-breakdown?year=${selectedYear}&month=${selectedMonth}`, { credentials: "include" })
       .then(r => r.json())
       .then(json => { if (json.data) setAnalysisBreakdown(json.data.categories); })
       .catch(err => console.error('Failed to fetch category breakdown:', err));
 
     // Fetch Trends 
-    fetch(`http://localhost:3000/api/v1/analysis/trends?year=${selectedYear}&month=${selectedMonth}`)
+    fetch(`http://localhost:3000/api/v1/analysis/trends?year=${selectedYear}&month=${selectedMonth}`, { credentials: "include" })
       .then(r => r.json())
       .then(json => { if (json.data) setAnalysisTrends(json.data.trends); })
       .catch(err => console.error('Failed to fetch trend sets:', err));
 
     // Fetch Spending Insights 
-    fetch(`http://localhost:3000/api/v1/analysis/spending-insights?year=${selectedYear}&month=${selectedMonth}`)
+    fetch(`http://localhost:3000/api/v1/analysis/spending-insights?year=${selectedYear}&month=${selectedMonth}`, { credentials: "include" })
       .then(r => r.json())
       .then(json => { if (json.data) setAnalysisInsights(json.data.insights); })
       .catch(err => console.error('Failed to fetch spending insights:', err));
     
-    fetch('http://localhost:3000/api/v1/budget/categories')
+    fetch('http://localhost:3000/api/v1/budget/categories', { credentials: "include" })
       .then(r => r.json())
       .then(json => { if (json.data) setBudgetCategories(json.data); })
       .catch(err => console.error('Failed to fetch budget categories:', err));
     
     
     // Fetch User Settings
-    fetch('http://localhost:3000/api/v1/settings')
+    fetch('http://localhost:3000/api/v1/settings', { credentials: "include" })
       .then(r => r.json())
       .then(json => { if (json.data) setSettings(json.data); })
       .catch(err => console.error('Failed to fetch settings:', err));
