@@ -4,8 +4,10 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from fastapi import Request, HTTPException
 
+from core.config import settings
+
 # Secret key for signing session JWTs [cite: 127]
-SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "super-secret-local-dev-key")
+SECRET_KEY = settings.SESSION_SECRET_KEY
 ALGORITHM = "HS256"
 
 def create_access_token(user_id: uuid.UUID) -> str:
