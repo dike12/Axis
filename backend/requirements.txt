@@ -9,3 +9,7 @@ passlib
 bcrypt 
 pyjwt 
 email-validator
+pytest
+httpx
+anyio
+pytest-asyncio

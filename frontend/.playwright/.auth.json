@@ -1,0 +1,15 @@
+{
+  "cookies": [
+    {
+      "name": "axis_session",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxZTljMzkwMi01MzgxLTQ2NmQtYmE4Yi0wNDU2OGY0NjA1NzQiLCJleHAiOjE3ODE4MzM5MDl9.I9KDoqOAtOzXbn1JDTwjtKE8nMLAsMlf30CoZ3aBgM8",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1781833909.055158,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}

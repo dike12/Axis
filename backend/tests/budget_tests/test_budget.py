@@ -126,8 +126,8 @@ class TestBudgetCategories:
     """13 tests covering the full CRUD surface of /budget/categories."""
 
     # ── A1: GET list returns 200 ──────────────────────────────────────────────
-    def test_list_categories_returns_200(self, client):
-        r = client.get("/budget/categories")
+    async def test_list_categories_returns_200(self, client):
+        r = await client.get("/budget/categories")
         assert r.status_code == 200, r.text
         data, error = unwrap(r)
         assert error is None, f"Unexpected error on list: {error}"
@@ -139,8 +139,8 @@ class TestBudgetCategories:
         ({"name": f"{TEST_PREFIX}CrudIncome",  "type": "income",  "icon": "💵"}, "income"),
         ({"name": f"{TEST_PREFIX}CrudSavings", "type": "savings", "icon": "🏦"}, "savings"),
     ])
-    def test_create_category_valid(self, client, payload, expected_type):
-        r = client.post("/budget/categories", json=payload)
+    async def test_create_category_valid(self, client, payload, expected_type):
+        r = await client.post("/budget/categories", json=payload)
         assert r.status_code in (200, 201), r.text
         data, error = unwrap(r)
         assert error is None, f"Unexpected error: {error}"
@@ -148,34 +148,34 @@ class TestBudgetCategories:
         assert data["type"] == expected_type
         assert "id" in data, "Response missing 'id' field"
         # Cleanup — ignore failures (deletion guard might block if values exist)
-        client.delete(f"/budget/categories/{data['id']}")
+        await client.delete(f"/budget/categories/{data['id']}")
 
     # ── A5: Missing required field 'name' → 400 or 422 ───────────────────────
     # Spec §7.2 says 400, but FastAPI returns 422 for Pydantic validation errors.
     # Both are acceptable until the server normalises to 400.
-    def test_create_category_missing_name_returns_400(self, client):
-        r = client.post("/budget/categories", json={"type": "expense"})
+    async def test_create_category_missing_name_returns_400(self, client):
+        r = await client.post("/budget/categories", json={"type": "expense"})
         assert r.status_code in (400, 422), (
             f"Expected 400/422 for missing name, got {r.status_code}: {r.text}"
         )
 
     # ── A6: Name exceeds 100 chars → 400/422 (spec §7.3) ─────────────────────
-    def test_create_category_name_too_long_returns_400(self, client):
-        r = client.post("/budget/categories", json={"name": LONG_NAME, "type": "expense"})
+    async def test_create_category_name_too_long_returns_400(self, client):
+        r = await client.post("/budget/categories", json={"name": LONG_NAME, "type": "expense"})
         assert r.status_code in (400, 422), (
             f"Expected 400/422 for name > 100 chars, got {r.status_code}: {r.text}"
         )
 
     # ── A7: Missing required field 'type' → 400/422 ─────────────────────────
-    def test_create_category_missing_type_returns_400(self, client):
-        r = client.post("/budget/categories", json={"name": f"{TEST_PREFIX}NoType"})
+    async def test_create_category_missing_type_returns_400(self, client):
+        r = await client.post("/budget/categories", json={"name": f"{TEST_PREFIX}NoType"})
         assert r.status_code in (400, 422), (
             f"Expected 400/422 for missing type, got {r.status_code}"
         )
 
     # ── A8: Invalid type value → 400/422 ────────────────────────────────────
-    def test_create_category_invalid_type_returns_400(self, client):
-        r = client.post("/budget/categories", json={
+    async def test_create_category_invalid_type_returns_400(self, client):
+        r = await client.post("/budget/categories", json={
             "name": f"{TEST_PREFIX}BadType", "type": "not_a_real_type"
         })
         assert r.status_code in (400, 422), (
@@ -183,16 +183,16 @@ class TestBudgetCategories:
         )
 
     # ── A9: PUT updates icon, is_fixed, sort_order ────────────────────────────
-    def test_update_category_fields(self, client):
+    async def test_update_category_fields(self, client):
         # Create a throwaway category
-        r = client.post("/budget/categories", json={
+        r = await client.post("/budget/categories", json={
             "name": f"{TEST_PREFIX}UpdateMe", "type": "expense", "icon": "❓", "sort_order": 0
         })
         assert r.status_code in (200, 201), r.text
         cat_id = unwrap(r)[0]["id"]
 
         # Update it
-        r = client.put(f"/budget/categories/{cat_id}", json={
+        r = await client.put(f"/budget/categories/{cat_id}", json={
             "icon": "✅", "is_fixed": True, "sort_order": 99
         })
         assert r.status_code == 200, r.text
@@ -203,30 +203,30 @@ class TestBudgetCategories:
         assert data["sort_order"] == 99, f"sort_order not updated: {data}"
 
         # Cleanup
-        client.delete(f"/budget/categories/{cat_id}")
+        await client.delete(f"/budget/categories/{cat_id}")
 
     # ── A10: PUT non-existent ID → 404 ───────────────────────────────────────
-    def test_update_nonexistent_category_returns_404(self, client):
-        r = client.put(f"/budget/categories/{uuid.uuid4()}", json={"icon": "🎯"})
+    async def test_update_nonexistent_category_returns_404(self, client):
+        r = await client.put(f"/budget/categories/{uuid.uuid4()}", json={"icon": "🎯"})
         assert r.status_code == 404, (
             f"Expected 404 for unknown category ID, got {r.status_code}"
         )
 
     # ── A11: DELETE category with no values → success ─────────────────────────
-    def test_delete_category_no_values_succeeds(self, client):
-        r = client.post("/budget/categories", json={
+    async def test_delete_category_no_values_succeeds(self, client):
+        r = await client.post("/budget/categories", json={
             "name": f"{TEST_PREFIX}DeleteMe", "type": "expense"
         })
         assert r.status_code in (200, 201), r.text
         cat_id = unwrap(r)[0]["id"]
 
-        r = client.delete(f"/budget/categories/{cat_id}")
+        r = await client.delete(f"/budget/categories/{cat_id}")
         assert r.status_code in (200, 204), (
             f"Expected 200/204 for deleting empty category, got {r.status_code}: {r.text}"
         )
 
     # ── A12: DELETE category that has budget_values → 400/409 (guard) ─────────
-    def test_delete_category_with_values_blocked_by_guard(self, client):
+    async def test_delete_category_with_values_blocked_by_guard(self, client):
         """
         Spec §3.3: 'Delete category (only if no associated values)'.
         Steps:
@@ -237,14 +237,14 @@ class TestBudgetCategories:
               the spec provides no API endpoint to clear budget_values rows.
         """
         # Step 1 — create
-        r = client.post("/budget/categories", json={
+        r = await client.post("/budget/categories", json={
             "name": f"{TEST_PREFIX}GuardTest", "type": "expense"
         })
         assert r.status_code in (200, 201), r.text
         cat_id = unwrap(r)[0]["id"]
 
         # Step 2 — seed a budget_values row for it
-        seed = client.put("/budget/values", json=[{
+        seed = await client.put("/budget/values", json=[{
             "category_id": cat_id,
             "year": 2025,
             "month": 3,
@@ -256,15 +256,15 @@ class TestBudgetCategories:
             )
 
         # Step 3 — deletion must be blocked
-        r = client.delete(f"/budget/categories/{cat_id}")
+        r = await client.delete(f"/budget/categories/{cat_id}")
         assert r.status_code in (400, 409), (
             f"Expected 400/409 (deletion guard), got {r.status_code}. "
             "If 200/204 was returned, the spec guard is not implemented."
         )
 
     # ── A13: DELETE non-existent ID → 404 ────────────────────────────────────
-    def test_delete_nonexistent_category_returns_404(self, client):
-        r = client.delete(f"/budget/categories/{uuid.uuid4()}")
+    async def test_delete_nonexistent_category_returns_404(self, client):
+        r = await client.delete(f"/budget/categories/{uuid.uuid4()}")
         assert r.status_code == 404, (
             f"Expected 404 for unknown category ID, got {r.status_code}"
         )
@@ -283,8 +283,8 @@ class TestBudgetValues:
     """
 
     # ── B1: GET /budget/values returns 200 with a list ────────────────────────
-    def test_get_values_returns_200(self, client, core_categories, seeded_transactions):
-        r = client.get("/budget/values", params={"year": 2025})
+    async def test_get_values_returns_200(self, client, core_categories, seeded_transactions):
+        r = await client.get("/budget/values", params={"year": 2025})
         assert r.status_code == 200, r.text
         data, error = unwrap(r)
         assert error is None
@@ -293,9 +293,9 @@ class TestBudgetValues:
         assert "year" in data, f"Response missing 'year' key: {list(data.keys())}"
 
     # ── B2: Grid covers all 12 months per category ────────────────────────────
-    def test_get_values_covers_12_months(self, client, core_categories, seeded_transactions):
+    async def test_get_values_covers_12_months(self, client, core_categories, seeded_transactions):
         food_id = core_categories[FOOD_CAT]
-        r = client.get("/budget/values", params={"year": 2025})
+        r = await client.get("/budget/values", params={"year": 2025})
         assert r.status_code == 200, r.text
         data, _ = unwrap(r)
 
@@ -310,7 +310,7 @@ class TestBudgetValues:
                 )
 
     # ── B3: Bulk upsert planned amounts returns success ─────────────────────────
-    def test_bulk_upsert_planned_amounts_succeeds(self, client, core_categories, seeded_transactions):
+    async def test_bulk_upsert_planned_amounts_succeeds(self, client, core_categories, seeded_transactions):
         """
         SPEC DEVIATION: spec §3.3 says PUT /budget/values body is an array:
           [{ category_id, year, month, planned_amount }]
@@ -323,7 +323,7 @@ class TestBudgetValues:
         income_id = core_categories[INCOME_CAT]
 
         # Try array format first (spec says this should work)
-        r_array = client.put("/budget/values", json=[
+        r_array = await client.put("/budget/values", json=[
             {"category_id": food_id,   "year": 2025, "month": 5, "planned_amount": 400.00},
             {"category_id": income_id, "year": 2025, "month": 5, "planned_amount": 5000.00},
         ])
@@ -333,7 +333,7 @@ class TestBudgetValues:
 
         # Array rejected.
         # Server error revealed the actual required format: {"values": [...]}
-        r_wrapped = client.put("/budget/values", json={
+        r_wrapped = await client.put("/budget/values", json={
             "values": [
                 {"category_id": food_id,   "year": 2025, "month": 5, "planned_amount": 400.00},
                 {"category_id": income_id, "year": 2025, "month": 5, "planned_amount": 5000.00},
@@ -355,7 +355,7 @@ class TestBudgetValues:
         )
 
     # ── B4: Planned amounts persist correctly ────────────────────────────────
-    def test_planned_amounts_are_persisted(self, client, core_categories, seeded_transactions):
+    async def test_planned_amounts_are_persisted(self, client, core_categories, seeded_transactions):
         """
         Depends on B3 having set Food/May planned_amount = 400.
         If B3 xfailed (upsert format broken), this test reflects the stored value
@@ -363,7 +363,7 @@ class TestBudgetValues:
         """
         food_id = core_categories[FOOD_CAT]
 
-        r = client.get("/budget/values", params={"year": 2025})
+        r = await client.get("/budget/values", params={"year": 2025})
         assert r.status_code == 200, r.text
         data, _ = unwrap(r)
 
@@ -377,9 +377,9 @@ class TestBudgetValues:
             )
 
     # ── B5: actual_amount field exists in grid response ───────────────────────
-    def test_actual_amount_field_present_in_grid(self, client, core_categories, seeded_transactions):
+    async def test_actual_amount_field_present_in_grid(self, client, core_categories, seeded_transactions):
         food_id = core_categories[FOOD_CAT]
-        r = client.get("/budget/values", params={"year": 2025})
+        r = await client.get("/budget/values", params={"year": 2025})
         assert r.status_code == 200, r.text
         data, _ = unwrap(r)
 
@@ -392,9 +392,9 @@ class TestBudgetValues:
         )
 
     # ── B6: Actual Food/May = 350.00  (T1 + T2 both land in May) ─────────────
-    def test_actual_food_may_is_350(self, client, core_categories, seeded_transactions):
+    async def test_actual_food_may_is_350(self, client, core_categories, seeded_transactions):
         food_id = core_categories[FOOD_CAT]
-        r = client.get("/budget/values", params={"year": 2025})
+        r = await client.get("/budget/values", params={"year": 2025})
         assert r.status_code == 200, r.text
         data, _ = unwrap(r)
 
@@ -406,7 +406,7 @@ class TestBudgetValues:
         )
 
     # ── B7 ★ ROLLOVER: Income/May = 3000.00  (T4 must be SHIFTED OUT) ─────────
-    def test_actual_income_may_excludes_shifted_transaction(self, client, core_categories, seeded_transactions):
+    async def test_actual_income_may_excludes_shifted_transaction(self, client, core_categories, seeded_transactions):
         """
         THE CRITICAL ROLLOVER TEST.
         T4 is a credit dated May 22 (>= income_cutoff_day 20).
@@ -415,7 +415,7 @@ class TestBudgetValues:
         If this test fails with 3500, the rollover rule is broken in the backend.
         """
         income_id = core_categories[INCOME_CAT]
-        r = client.get("/budget/values", params={"year": 2025})
+        r = await client.get("/budget/values", params={"year": 2025})
         assert r.status_code == 200, r.text
         data, _ = unwrap(r)
 
@@ -428,13 +428,13 @@ class TestBudgetValues:
         )
 
     # ── B8 ★ ROLLOVER: Income/June = 500.00  (T4 shifted INTO June) ──────────
-    def test_actual_income_june_contains_shifted_transaction(self, client, core_categories, seeded_transactions):
+    async def test_actual_income_june_contains_shifted_transaction(self, client, core_categories, seeded_transactions):
         """
         Companion to B7. T4's effective_date = 2025-06-01 after shift.
         Income/June should be 500.
         """
         income_id = core_categories[INCOME_CAT]
-        r = client.get("/budget/values", params={"year": 2025})
+        r = await client.get("/budget/values", params={"year": 2025})
         assert r.status_code == 200, r.text
         data, _ = unwrap(r)
 
@@ -445,9 +445,9 @@ class TestBudgetValues:
         )
 
     # ── B9: Actual Food/June = 300.00 (T5 effective June 5) ──────────────────
-    def test_actual_food_june_is_300(self, client, core_categories, seeded_transactions):
+    async def test_actual_food_june_is_300(self, client, core_categories, seeded_transactions):
         food_id = core_categories[FOOD_CAT]
-        r = client.get("/budget/values", params={"year": 2025})
+        r = await client.get("/budget/values", params={"year": 2025})
         assert r.status_code == 200, r.text
         data, _ = unwrap(r)
 
@@ -457,9 +457,9 @@ class TestBudgetValues:
         )
 
     # ── B10: Savings actual = 0.00 (no savings transactions seeded) ───────────
-    def test_actual_savings_may_is_zero(self, client, core_categories, seeded_transactions):
+    async def test_actual_savings_may_is_zero(self, client, core_categories, seeded_transactions):
         savings_id = core_categories[SAVINGS_CAT]
-        r = client.get("/budget/values", params={"year": 2025})
+        r = await client.get("/budget/values", params={"year": 2025})
         assert r.status_code == 200, r.text
         data, _ = unwrap(r)
 
@@ -469,9 +469,9 @@ class TestBudgetValues:
         )
 
     # ── B11: Year with no transactions → all actuals = 0 ──────────────────────
-    def test_empty_year_all_actuals_zero(self, client, core_categories, seeded_transactions):
+    async def test_empty_year_all_actuals_zero(self, client, core_categories, seeded_transactions):
         food_id = core_categories[FOOD_CAT]
-        r = client.get("/budget/values", params={"year": 2020})
+        r = await client.get("/budget/values", params={"year": 2020})
         assert r.status_code == 200, r.text
         data, _ = unwrap(r)
 
@@ -482,15 +482,15 @@ class TestBudgetValues:
             )
 
     # ── B12: Malformed bulk upsert body → 400 ─────────────────────────────────
-    def test_malformed_bulk_upsert_returns_400(self, client, core_categories):
+    async def test_malformed_bulk_upsert_returns_400(self, client, core_categories):
         # Missing month and planned_amount
-        r = client.put("/budget/values", json=[{"category_id": str(uuid.uuid4())}])
+        r = await client.put("/budget/values", json=[{"category_id": str(uuid.uuid4())}])
         assert r.status_code in (400, 422), (
             f"Expected 400/422 for malformed upsert body, got {r.status_code}"
         )
 
     # ── B13: Bulk upsert is idempotent (no double-insert) ─────────────────────
-    def test_bulk_upsert_is_idempotent(self, client, core_categories, seeded_transactions):
+    async def test_bulk_upsert_is_idempotent(self, client, core_categories, seeded_transactions):
         """
         Blocked by the same spec deviation as B3: server rejects array body.
         Marked xfail until PUT /budget/values accepts List[BudgetValueUpdate].
@@ -499,17 +499,17 @@ class TestBudgetValues:
         # Use confirmed wrapped format {"values": [...]}
         payload = {"values": [{"category_id": food_id, "year": 2025, "month": 8, "planned_amount": 250.00}]}
 
-        r1 = client.put("/budget/values", json=payload)
+        r1 = await client.put("/budget/values", json=payload)
         if r1.status_code not in (200, 201, 204):
             pytest.xfail(
                 f"PUT /budget/values rejected wrapped body (HTTP {r1.status_code}): {r1.text[:200]}. "
                 "Idempotency cannot be tested until upsert is fixed."
             )
 
-        r2 = client.put("/budget/values", json=payload)
+        r2 = await client.put("/budget/values", json=payload)
         assert r2.status_code in (200, 201, 204), f"Second upsert failed: {r2.text}"
 
-        r = client.get("/budget/values", params={"year": 2025})
+        r = await client.get("/budget/values", params={"year": 2025})
         data, _ = unwrap(r)
         planned = get_month_value(data, food_id, 8, "planned_amount")
         assert planned == pytest.approx(250.00, abs=0.01), (
@@ -518,9 +518,9 @@ class TestBudgetValues:
         )
 
     # ── B14: month=13 (out of range) → 400 ────────────────────────────────────
-    def test_upsert_month_out_of_range_returns_400(self, client, core_categories):
+    async def test_upsert_month_out_of_range_returns_400(self, client, core_categories):
         food_id = core_categories[FOOD_CAT]
-        r = client.put("/budget/values", json=[{
+        r = await client.put("/budget/values", json=[{
             "category_id": food_id,
             "year": 2025,
             "month": 13,          # invalid per spec §7.3
@@ -539,16 +539,16 @@ class TestBudgetPerformance:
     """5 tests covering the performance summary endpoint."""
 
     # ── C1: Returns 200 with non-null data ────────────────────────────────────
-    def test_performance_returns_200(self, client, core_categories, seeded_transactions):
-        r = client.get("/budget/performance", params={"year": 2025})
+    async def test_performance_returns_200(self, client, core_categories, seeded_transactions):
+        r = await client.get("/budget/performance", params={"year": 2025})
         assert r.status_code == 200, r.text
         data, error = unwrap(r)
         assert error is None
         assert data is not None, "Performance data should not be null"
 
     # ── C2: Income actual = 3500.00 (3000 May + 500 June, using effective_date) ─
-    def test_performance_income_actual_is_3500(self, client, core_categories, seeded_transactions):
-        r = client.get("/budget/performance", params={"year": 2025})
+    async def test_performance_income_actual_is_3500(self, client, core_categories, seeded_transactions):
+        r = await client.get("/budget/performance", params={"year": 2025})
         assert r.status_code == 200, r.text
         data, _ = unwrap(r)
 
@@ -559,8 +559,8 @@ class TestBudgetPerformance:
         )
 
     # ── C3: Expense actual = 650.00 (200 + 150 + 300, using effective_date) ───
-    def test_performance_expense_actual_is_650(self, client, core_categories, seeded_transactions):
-        r = client.get("/budget/performance", params={"year": 2025})
+    async def test_performance_expense_actual_is_650(self, client, core_categories, seeded_transactions):
+        r = await client.get("/budget/performance", params={"year": 2025})
         assert r.status_code == 200, r.text
         data, _ = unwrap(r)
 
@@ -571,8 +571,8 @@ class TestBudgetPerformance:
         )
 
     # ── C4: Year with no data → all zeros, no crash ────────────────────────────
-    def test_performance_empty_year_returns_zeros(self, client, core_categories, seeded_transactions):
-        r = client.get("/budget/performance", params={"year": 2020})
+    async def test_performance_empty_year_returns_zeros(self, client, core_categories, seeded_transactions):
+        r = await client.get("/budget/performance", params={"year": 2020})
         assert r.status_code == 200, r.text
         data, error = unwrap(r)
         assert error is None
@@ -587,8 +587,8 @@ class TestBudgetPerformance:
         )
 
     # ── C5: Missing year parameter → 400 or graceful default ──────────────────
-    def test_performance_missing_year_param(self, client):
-        r = client.get("/budget/performance")
+    async def test_performance_missing_year_param(self, client):
+        r = await client.get("/budget/performance")
         # Strict implementation returns 400/422; lenient defaults to current year (200)
         assert r.status_code in (200, 400, 422), (
             f"Unexpected status {r.status_code} for missing year param"
@@ -612,10 +612,10 @@ class TestResponseEnvelope:
         ("/budget/values",     {"year": 2025}),
         ("/budget/performance",{"year": 2025}),
     ])
-    def test_success_response_has_data_and_null_error(
+    async def test_success_response_has_data_and_null_error(
         self, client, core_categories, seeded_transactions, path, params
     ):
-        r = client.get(path, params=params)
+        r = await client.get(path, params=params)
         assert r.status_code == 200, r.text
         body = r.json()
         assert isinstance(body, dict), f"Response should be a JSON object, got: {type(body)}"
@@ -625,14 +625,14 @@ class TestResponseEnvelope:
         )
 
     # ── D2: Error envelope on 404 ─────────────────────────────────────────────
-    def test_error_response_has_error_object_on_404(self, client):
+    async def test_error_response_has_error_object_on_404(self, client):
         """
         Spec §7.2: errors must return { data: null, error: { code, message } }.
         Currently the server returns FastAPI's default { "detail": "..." }.
         This test documents the deviation: it passes if EITHER format is present,
         but marks the spec format as expected so the gap is visible.
         """
-        r = client.put(f"/budget/categories/{uuid.uuid4()}", json={"icon": "x"})
+        r = await client.put(f"/budget/categories/{uuid.uuid4()}", json={"icon": "x"})
         assert r.status_code == 404, r.text
         body = r.json()
 
@@ -655,12 +655,12 @@ class TestResponseEnvelope:
             )
 
     # ── D3: Error envelope on 400/422 — data must be null ────────────────────
-    def test_error_response_data_is_null_on_400(self, client):
+    async def test_error_response_data_is_null_on_400(self, client):
         """
         Spec §7.2: error responses must have data: null.
         Same deviation as D2 — currently returns {"detail": [...]}.
         """
-        r = client.post("/budget/categories", json={"type": "expense"})  # missing name
+        r = await client.post("/budget/categories", json={"type": "expense"})  # missing name
         assert r.status_code in (400, 422), r.text
         body = r.json()
 
@@ -678,13 +678,13 @@ class TestResponseEnvelope:
             )
 
     # ── D4: 500 errors must not expose raw DB errors or stack traces ───────────
-    def test_internal_errors_do_not_leak_stack_traces(self, client):
+    async def test_internal_errors_do_not_leak_stack_traces(self, client):
         """
         Sends a syntactically valid but semantically broken request to provoke
         a potential server error. Verifies the response body does not contain
         raw Python tracebacks or SQLAlchemy error strings.
         """
-        r = client.put("/budget/values", json=[{
+        r = await client.put("/budget/values", json=[{
             "category_id": "not-a-uuid",   # will fail UUID parsing
             "year": 2025,
             "month": 5,

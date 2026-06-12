@@ -10,6 +10,7 @@ from modules.settings.models import UserSettings
 
 
 
+
 async def register_user(db: AsyncSession, data: UserRegister) -> User | None:
     # Validate email uniqueness
     existing = await db.execute(select(User).where(User.email == data.email))
